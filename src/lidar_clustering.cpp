@@ -1,0 +1,243 @@
+#include <ros/ros.h>
+#include <sensor_msgs/LaserScan.h>
+#include <geometry_msgs/Point.h>
+#include <visualization_msgs/MarkerArray.h>
+#include <cmath>
+#include <vector>
+#include <algorithm>
+
+class LidarClustering
+{
+public:
+    LidarClustering()
+    {
+        // LiDARデータの購読
+        scan_sub_ = nh_.subscribe("/scan", 10, &LidarClustering::scanCallback, this);
+        // クラスタ結果を可視化するためのパブリッシャー
+        cluster_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("lidar_clusters", 10);
+        // 人検出結果を可視化するためのパブリッシャー
+        people_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("detected_people", 10);
+    }
+
+    void scanCallback(const sensor_msgs::LaserScan::ConstPtr& scan)
+    {
+        std::vector<std::vector<geometry_msgs::Point>> clusters;
+        std::vector<geometry_msgs::Point> current_cluster;
+
+        double distance_threshold = 0.5;  // クラスタリングに用いるしきい値
+
+        for (size_t i = 0; i < scan->ranges.size(); ++i)
+        {
+            if (std::isfinite(scan->ranges[i]))
+            {
+                // 極座標から直交座標に変換
+                geometry_msgs::Point p;
+                double angle = scan->angle_min + i * scan->angle_increment;
+                p.x = scan->ranges[i] * cos(angle);
+                p.y = scan->ranges[i] * sin(angle);
+
+                if (current_cluster.empty())
+                {
+                    current_cluster.push_back(p);
+                }
+                else
+                {
+                    // 現在の点と前の点の距離を計算
+                    geometry_msgs::Point last_point = current_cluster.back();
+                    double distance = sqrt(pow(p.x - last_point.x, 2) + pow(p.y - last_point.y, 2));
+
+                    if (distance < distance_threshold)
+                    {
+                        current_cluster.push_back(p);
+                    }
+                    else
+                    {
+                        // 距離がしきい値を超えたら新しいクラスタを作成
+                        if (!current_cluster.empty())
+                        {
+                            clusters.push_back(current_cluster);
+                            current_cluster.clear();
+                        }
+                        current_cluster.push_back(p);
+                    }
+                }
+            }
+        }
+
+        // 最後のクラスタを追加
+        if (!current_cluster.empty())
+        {
+            clusters.push_back(current_cluster);
+        }
+
+        // クラスタ結果を可視化のためにパブリッシュ
+        publishClusters(clusters);
+
+        // 人を検出するためのフィルタを適用
+        detectPeople(clusters);
+    }
+
+private:
+    ros::NodeHandle nh_;
+    ros::Subscriber scan_sub_;
+    ros::Publisher cluster_pub_;
+    ros::Publisher people_pub_;
+
+    // クラスタの可視化
+    void publishClusters(const std::vector<std::vector<geometry_msgs::Point>>& clusters)
+    {
+        visualization_msgs::MarkerArray marker_array;
+        for (size_t i = 0; i < clusters.size(); ++i)
+        {
+            visualization_msgs::Marker marker;
+            marker.header.frame_id = "laser";
+            marker.header.stamp = ros::Time::now();
+            marker.ns = "clusters";
+            marker.id = i;
+            marker.type = visualization_msgs::Marker::LINE_STRIP;
+            marker.action = visualization_msgs::Marker::ADD;
+            marker.scale.x = 0.05;  // 線の太さ
+            marker.color.r = 0.0;
+            marker.color.g = 1.0;
+            marker.color.b = 0.0;
+            marker.color.a = 1.0;
+
+            for (const auto& point : clusters[i])
+            {
+                marker.points.push_back(point);
+            }
+
+            marker_array.markers.push_back(marker);
+        }
+
+        cluster_pub_.publish(marker_array);
+    }
+
+    // 包含矩形（バウンディングボックス）の計算
+    std::pair<geometry_msgs::Point, geometry_msgs::Point> calculateBoundingBox(const std::vector<geometry_msgs::Point>& cluster)
+    {
+        geometry_msgs::Point min_point, max_point;
+        min_point.x = std::numeric_limits<double>::max();
+        min_point.y = std::numeric_limits<double>::max();
+        max_point.x = std::numeric_limits<double>::lowest();
+        max_point.y = std::numeric_limits<double>::lowest();
+
+        for (const auto& point : cluster)
+        {
+            min_point.x = std::min(min_point.x, point.x);
+            min_point.y = std::min(min_point.y, point.y);
+            max_point.x = std::max(max_point.x, point.x);
+            max_point.y = std::max(max_point.y, point.y);
+        }
+
+        return {min_point, max_point};
+    }
+
+    // 人を検出するためのフィルタと可視化
+    void detectPeople(const std::vector<std::vector<geometry_msgs::Point>>& clusters)
+    {
+        visualization_msgs::MarkerArray people_markers;
+        int marker_id = 0;  // マーカーIDを設定
+        bool people_detected = false;  // 人が検出されたかどうかのフラグ
+
+        for (const auto& cluster : clusters)
+        {
+            double avg_distance = calculateAverageDistance(cluster);
+            size_t point_count = cluster.size();
+
+            // 包含矩形の計算
+            auto bounding_box = calculateBoundingBox(cluster);
+            geometry_msgs::Point min_point = bounding_box.first;
+            geometry_msgs::Point max_point = bounding_box.second;
+
+            double length = sqrt(pow(max_point.x - min_point.x, 2) + pow(max_point.y - min_point.y, 2));  // 長辺の長さ
+            double width = sqrt(pow(max_point.x - min_point.x, 2));  // 短辺の長さ（X方向）
+
+            double aspect_ratio = length / width;
+
+            // 指定された条件に基づくフィルタリング
+            // if ((avg_distance <= 5.0 && length >= 0.25 && length <= 0.8 && aspect_ratio >= 2.5 && aspect_ratio <= 9.5) ||
+            //     (avg_distance > 5.0 && avg_distance <= 10.0 && length >= 0.45 && length <= 0.65 && aspect_ratio >= 2.5 && aspect_ratio <= 7.5) ||
+            //     (avg_distance > 10.0 && length >= 0.4 && length <= 0.85 && aspect_ratio >= 3.0 && aspect_ratio <= 20.0))
+            if (avg_distance <= 5.0 && length >= 0.25 && length <= 0.8 && aspect_ratio >= 2.5 && aspect_ratio <= 9.5)
+            {
+                ROS_INFO("Human detected at average distance: %f with length: %f, aspect_ratio: %f", avg_distance, length, aspect_ratio);
+
+                // 包含矩形を可視化
+                visualization_msgs::Marker bbox_marker;
+                bbox_marker.header.frame_id = "laser";
+                bbox_marker.header.stamp = ros::Time::now();
+                bbox_marker.ns = "detected_people";
+                bbox_marker.id = marker_id++;  // ユニークなIDを使用
+                bbox_marker.type = visualization_msgs::Marker::LINE_LIST;
+                bbox_marker.action = visualization_msgs::Marker::ADD;
+                bbox_marker.scale.x = 0.05;
+                bbox_marker.color.r = 1.0;
+                bbox_marker.color.g = 0.0;
+                bbox_marker.color.b = 0.0;
+                bbox_marker.color.a = 1.0;
+
+                // バウンディングボックスの頂点を設定
+                geometry_msgs::Point p1 = min_point;
+
+                geometry_msgs::Point p2;
+                p2.x = max_point.x;
+                p2.y = min_point.y;
+                p2.z = 0.0;
+
+                geometry_msgs::Point p3 = max_point;
+
+                geometry_msgs::Point p4;
+                p4.x = min_point.x;
+                p4.y = max_point.y;
+                p4.z = 0.0;
+
+                bbox_marker.points.push_back(p1);
+                bbox_marker.points.push_back(p2);
+                bbox_marker.points.push_back(p2);
+                bbox_marker.points.push_back(p3);
+                bbox_marker.points.push_back(p3);
+                bbox_marker.points.push_back(p4);
+                bbox_marker.points.push_back(p4);
+                bbox_marker.points.push_back(p1);
+
+                people_markers.markers.push_back(bbox_marker);
+                people_detected = true;
+            }
+        }
+
+        // 人が検出されなかった場合、マーカーを削除する
+        if (!people_detected)
+        {
+            visualization_msgs::Marker delete_marker;
+            delete_marker.action = visualization_msgs::Marker::DELETE;
+            delete_marker.ns = "detected_people";
+            for (int i = 0; i < marker_id; ++i)
+            {
+                delete_marker.id = i;
+                people_markers.markers.push_back(delete_marker);
+            }
+        }
+
+        people_pub_.publish(people_markers);  // 人検出結果または削除結果をパブリッシュ
+    }
+
+    // クラスタ内の平均距離を計算
+    double calculateAverageDistance(const std::vector<geometry_msgs::Point>& cluster)
+    {
+        double total_distance = 0.0;
+        for (const auto& point : cluster)
+        {
+            total_distance += sqrt(pow(point.x, 2) + pow(point.y, 2));
+        }
+        return total_distance / cluster.size();
+    }
+};
+
+int main(int argc, char** argv)
+{
+    ros::init(argc, argv, "lidar_clustering");
+    LidarClustering lc;
+    ros::spin();
+    return 0;
+}

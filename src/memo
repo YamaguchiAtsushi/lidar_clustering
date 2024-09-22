@@ -1,0 +1,148 @@
+#include <ros/ros.h>
+#include <sensor_msgs/LaserScan.h>
+#include <geometry_msgs/Point.h>
+#include <visualization_msgs/MarkerArray.h>
+#include <cmath>
+#include <vector>
+
+class LidarClustering
+{
+public:
+    LidarClustering()
+    {
+        // LiDARデータの購読
+        scan_sub_ = nh_.subscribe("/scan", 10, &LidarClustering::scanCallback, this);
+        // クラスタ結果を可視化するためのパブリッシャー
+        cluster_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("lidar_clusters", 10);
+    }
+
+    void scanCallback(const sensor_msgs::LaserScan::ConstPtr& scan)
+    {
+        std::vector<std::vector<geometry_msgs::Point>> clusters;
+        std::vector<geometry_msgs::Point> current_cluster;
+
+        double distance_threshold = 0.5;  // クラスタリングに用いるしきい値
+
+        for (size_t i = 0; i < scan->ranges.size(); ++i)
+        {
+            if (std::isfinite(scan->ranges[i]))
+            {
+                // 極座標から直交座標に変換
+                geometry_msgs::Point p;
+                double angle = scan->angle_min + i * scan->angle_increment;
+                p.x = scan->ranges[i] * cos(angle);
+                p.y = scan->ranges[i] * sin(angle);
+
+                if (current_cluster.empty())
+                {
+                    current_cluster.push_back(p);
+                }
+                else
+                {
+                    // 現在の点と前の点の距離を計算
+                    geometry_msgs::Point last_point = current_cluster.back();
+                    double distance = sqrt(pow(p.x - last_point.x, 2) + pow(p.y - last_point.y, 2));
+
+                    if (distance < distance_threshold)
+                    {
+                        current_cluster.push_back(p);
+                    }
+                    else
+                    {
+                        // 距離がしきい値を超えたら新しいクラスタを作成
+                        if (!current_cluster.empty())
+                        {
+                            clusters.push_back(current_cluster);
+                            current_cluster.clear();
+                        }
+                        current_cluster.push_back(p);
+                    }
+                }
+            }
+        }
+
+        // 最後のクラスタを追加
+        if (!current_cluster.empty())
+        {
+            clusters.push_back(current_cluster);
+        }
+
+        // クラスタ結果を可視化のためにパブリッシュ
+        publishClusters(clusters);
+
+        // 人を検出するためのフィルタを適用
+        detectPeople(clusters);
+    }
+
+private:
+    ros::NodeHandle nh_;
+    ros::Subscriber scan_sub_;
+    ros::Publisher cluster_pub_;
+
+    // クラスタの可視化
+    void publishClusters(const std::vector<std::vector<geometry_msgs::Point>>& clusters)
+    {
+        visualization_msgs::MarkerArray marker_array;
+        for (size_t i = 0; i < clusters.size(); ++i)
+        {
+            visualization_msgs::Marker marker;
+            marker.header.frame_id = "laser_frame";
+            marker.header.stamp = ros::Time::now();
+            marker.ns = "clusters";
+            marker.id = i;
+            marker.type = visualization_msgs::Marker::LINE_STRIP;
+            marker.action = visualization_msgs::Marker::ADD;
+            marker.scale.x = 0.05;  // 線の太さ
+            marker.color.r = 0.0;
+            marker.color.g = 1.0;
+            marker.color.b = 0.0;
+            marker.color.a = 1.0;
+
+            for (const auto& point : clusters[i])
+            {
+                marker.points.push_back(point);
+            }
+
+            marker_array.markers.push_back(marker);
+        }
+
+        cluster_pub_.publish(marker_array);
+    }
+
+    // 人を検出するためのフィルタ
+    void detectPeople(const std::vector<std::vector<geometry_msgs::Point>>& clusters)
+    {
+        for (const auto& cluster : clusters)
+        {
+            double avg_distance = calculateAverageDistance(cluster);
+            size_t point_count = cluster.size();
+
+            // 距離と点群の数による判定
+            if ((avg_distance <= 5.0 && point_count >= 15 && point_count <= 70) ||
+                (avg_distance > 5.0 && avg_distance <= 10.0 && point_count >= 10 && point_count <= 35) ||
+                (avg_distance > 10.0 && avg_distance <= 15.0 && point_count >= 5 && point_count <= 18))
+            {
+                ROS_INFO("Human detected at average distance: %f with %lu points", avg_distance, point_count);
+            }
+        }
+    }
+
+    // クラスタ内の平均距離を計算
+    double calculateAverageDistance(const std::vector<geometry_msgs::Point>& cluster)
+    {
+        double total_distance = 0.0;
+        for (const auto& point : cluster)
+        {
+            total_distance += sqrt(pow(point.x, 2) + pow(point.y, 2));
+        }
+        return total_distance / cluster.size();
+    }
+};
+
+int main(int argc, char** argv)
+{
+    ros::init(argc, argv, "lidar_clustering_node");
+    LidarClustering lidar_clustering;
+    ros::spin();
+    return 0;
+}

@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>
     <!-- src_bagの定義 -->
-    <arg name="bag_file" default="/home/yamaguchi-a/catkin_ws/src/lidar_clustering/bag/test3.bag" />
+    <arg name="bag_file" default="/home/yamaguchi-a/catkin_ws/src/lidar_clustering/bag/test4.bag" />
 
     <!-- rosbag playノード -->
     <node pkg="rosbag" type="play" name="bag_player" args="--clock $(arg bag_file)" required="true"/>

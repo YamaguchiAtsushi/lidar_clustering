@@ -171,9 +171,12 @@ private:
             double aspect_ratio = length / width;
 
             // 指定された条件に基づくフィルタリング
-            if ((avg_distance <= 5.0 && length >= 0.25 && length <= 0.8 && aspect_ratio >= 2.5 && aspect_ratio <= 9.5) ||
-                (avg_distance > 5.0 && avg_distance <= 10.0 && length >= 0.45 && length <= 0.65 && aspect_ratio >= 2.5 && aspect_ratio <= 7.5) ||
-                (avg_distance > 10.0 && length >= 0.4 && length <= 0.85 && aspect_ratio >= 3.0 && aspect_ratio <= 20.0))
+            //if ((avg_distance <= 5.0 && point_count >= 15 && point_count <= 70 &&length >= 0.25 && length <= 0.8 && aspect_ratio >= 2.5 && aspect_ratio <= 9.5) ||
+            //    (avg_distance > 5.0 && point_count >= 10 && point_count <= 35 && avg_distance <= 10.0 && length >= 0.45 && length <= 0.65 && aspect_ratio >= 2.5 && aspect_ratio <= 7.5) ||
+            //    (avg_distance > 10.0 && point_count >= 5 && point_count <= 18 && length >= 0.4 && length <= 0.85 && aspect_ratio >= 3.0 && aspect_ratio <= 20.0))
+            if ((avg_distance <= 5.0 && point_count >= 15 && point_count <= 70 &&length >= 0.25 && length <= 0.8 && aspect_ratio >= 1.0 && aspect_ratio <= 9.5) ||
+                (avg_distance > 5.0 && avg_distance <= 10.0 && point_count >= 10 && point_count <= 35 && length >= 0.25 && length <= 0.65 && aspect_ratio >= 1.0 && aspect_ratio <= 7.5) ||
+                (avg_distance > 10.0 && point_count >= 5 && point_count <= 18 && length >= 0.25 && length <= 0.85 && aspect_ratio >= 1.0 && aspect_ratio <= 20.0))
             {
                 ROS_INFO("Human detected at average distance: %f with length: %f, aspect_ratio: %f", avg_distance, length, aspect_ratio);
 

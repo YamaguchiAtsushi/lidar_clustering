@@ -24,7 +24,7 @@ public:
         std::vector<std::vector<geometry_msgs::Point>> clusters;
         std::vector<geometry_msgs::Point> current_cluster;
 
-        double distance_threshold = 0.5;  // クラスタリングに用いるしきい値
+        double distance_threshold = 0.1;  // クラスタリングに用いるしきい値
 
         for (size_t i = 0; i < scan->ranges.size(); ++i)
         {
@@ -109,7 +109,10 @@ private:
 
             marker_array.markers.push_back(marker);
         }
+        if(marker_array.markers.size() <= 40){
+            cluster_pub_.publish(marker_array);
 
+        }
         cluster_pub_.publish(marker_array);
     }
 
@@ -133,6 +136,90 @@ private:
         return {min_point, max_point};
     }
 
+
+    void detectPeople(const std::vector<std::vector<geometry_msgs::Point>>& clusters)
+    {
+        visualization_msgs::MarkerArray people_markers;
+        int marker_id = 0;  // マーカーIDを設定
+
+        // 常にすべてのマーカーを削除するためのロジック
+        visualization_msgs::Marker delete_marker;
+        delete_marker.action = visualization_msgs::Marker::DELETE;
+        delete_marker.ns = "detected_people";
+        for (int i = 0; i < 100; ++i)  // 最大100個のマーカーを削除
+        {
+            delete_marker.id = i;
+            people_markers.markers.push_back(delete_marker);
+        }
+
+        for (const auto& cluster : clusters)
+        {
+            double avg_distance = calculateAverageDistance(cluster);
+            size_t point_count = cluster.size();
+
+            // 包含矩形の計算
+            auto bounding_box = calculateBoundingBox(cluster);
+            geometry_msgs::Point min_point = bounding_box.first;
+            geometry_msgs::Point max_point = bounding_box.second;
+
+            double length = sqrt(pow(max_point.x - min_point.x, 2) + pow(max_point.y - min_point.y, 2));  // 長辺の長さ
+
+            double width_x = fabs(max_point.x - min_point.x);  // X方向の距離
+            double width_y = fabs(max_point.y - min_point.y);  // Y方向の距離
+            double width = std::min(width_x, width_y);  // 短辺はX方向とY方向の距離のうち短い方
+
+            double aspect_ratio = length / width;
+
+            // 指定された条件に基づくフィルタリング
+            if ((avg_distance <= 5.0 && length >= 0.25 && length <= 0.8 && aspect_ratio >= 2.5 && aspect_ratio <= 9.5) ||
+                (avg_distance > 5.0 && avg_distance <= 10.0 && length >= 0.45 && length <= 0.65 && aspect_ratio >= 2.5 && aspect_ratio <= 7.5) ||
+                (avg_distance > 10.0 && length >= 0.4 && length <= 0.85 && aspect_ratio >= 3.0 && aspect_ratio <= 20.0))
+            {
+                ROS_INFO("Human detected at average distance: %f with length: %f, aspect_ratio: %f", avg_distance, length, aspect_ratio);
+
+                // 包含矩形を可視化
+                visualization_msgs::Marker bbox_marker;
+                bbox_marker.header.frame_id = "laser";
+                bbox_marker.header.stamp = ros::Time::now();
+                bbox_marker.ns = "detected_people";
+                bbox_marker.id = marker_id++;  // ユニークなIDを使用
+                bbox_marker.type = visualization_msgs::Marker::LINE_LIST;
+                bbox_marker.action = visualization_msgs::Marker::ADD;
+                bbox_marker.scale.x = 0.05;
+                bbox_marker.color.r = 1.0;
+                bbox_marker.color.g = 0.0;
+                bbox_marker.color.b = 0.0;
+                bbox_marker.color.a = 1.0;
+
+                // バウンディングボックスの頂点を設定
+                geometry_msgs::Point p1 = min_point;
+                geometry_msgs::Point p2;
+                p2.x = max_point.x;
+                p2.y = min_point.y;
+                p2.z = 0.0;
+                geometry_msgs::Point p3 = max_point;
+                geometry_msgs::Point p4;
+                p4.x = min_point.x;
+                p4.y = max_point.y;
+                p4.z = 0.0;
+
+                bbox_marker.points.push_back(p1);
+                bbox_marker.points.push_back(p2);
+                bbox_marker.points.push_back(p2);
+                bbox_marker.points.push_back(p3);
+                bbox_marker.points.push_back(p3);
+                bbox_marker.points.push_back(p4);
+                bbox_marker.points.push_back(p4);
+                bbox_marker.points.push_back(p1);
+
+                people_markers.markers.push_back(bbox_marker);
+            }
+        }
+
+        people_pub_.publish(people_markers);  // 人検出結果または削除結果をパブリッシュ
+    }
+
+    /*
     // 人を検出するためのフィルタと可視化
     void detectPeople(const std::vector<std::vector<geometry_msgs::Point>>& clusters)
     {
@@ -151,15 +238,19 @@ private:
             geometry_msgs::Point max_point = bounding_box.second;
 
             double length = sqrt(pow(max_point.x - min_point.x, 2) + pow(max_point.y - min_point.y, 2));  // 長辺の長さ
-            double width = sqrt(pow(max_point.x - min_point.x, 2));  // 短辺の長さ（X方向）
+            //double width = sqrt(pow(max_point.x - min_point.x, 2));  // 短辺の長さ（X方向）
+
+            double width_x = fabs(max_point.x - min_point.x);  // X方向の距離
+            double width_y = fabs(max_point.y - min_point.y);  // Y方向の距離
+            double width = std::min(width_x, width_y);  // 短辺はX方向とY方向の距離のうち短い方
 
             double aspect_ratio = length / width;
 
             // 指定された条件に基づくフィルタリング
-            // if ((avg_distance <= 5.0 && length >= 0.25 && length <= 0.8 && aspect_ratio >= 2.5 && aspect_ratio <= 9.5) ||
-            //     (avg_distance > 5.0 && avg_distance <= 10.0 && length >= 0.45 && length <= 0.65 && aspect_ratio >= 2.5 && aspect_ratio <= 7.5) ||
-            //     (avg_distance > 10.0 && length >= 0.4 && length <= 0.85 && aspect_ratio >= 3.0 && aspect_ratio <= 20.0))
-            if (avg_distance <= 5.0 && length >= 0.25 && length <= 0.8 && aspect_ratio >= 2.5 && aspect_ratio <= 9.5)
+             if ((avg_distance <= 5.0 && length >= 0.25 && length <= 0.8 && aspect_ratio >= 2.5 && aspect_ratio <= 9.5) ||
+                 (avg_distance > 5.0 && avg_distance <= 10.0 && length >= 0.45 && length <= 0.65 && aspect_ratio >= 2.5 && aspect_ratio <= 7.5) ||
+                 (avg_distance > 10.0 && length >= 0.4 && length <= 0.85 && aspect_ratio >= 3.0 && aspect_ratio <= 20.0))
+            //if (avg_distance <= 5.0 && length >= 0.25 && length <= 0.8 && aspect_ratio >= 2.5 && aspect_ratio <= 9.5)
             {
                 ROS_INFO("Human detected at average distance: %f with length: %f, aspect_ratio: %f", avg_distance, length, aspect_ratio);
 
@@ -192,6 +283,8 @@ private:
                 p4.y = max_point.y;
                 p4.z = 0.0;
 
+                //bbox_marker.points.clear();
+
                 bbox_marker.points.push_back(p1);
                 bbox_marker.points.push_back(p2);
                 bbox_marker.points.push_back(p2);
@@ -206,21 +299,42 @@ private:
             }
         }
 
-        // 人が検出されなかった場合、マーカーを削除する
-        if (!people_detected)
+        // マーカーを削除するロジック
+        visualization_msgs::Marker delete_marker;
+        delete_marker.action = visualization_msgs::Marker::DELETE;
+        delete_marker.ns = "detected_people";
+        for (int i = 0; i < marker_id; ++i)
         {
-            visualization_msgs::Marker delete_marker;
-            delete_marker.action = visualization_msgs::Marker::DELETE;
-            delete_marker.ns = "detected_people";
-            for (int i = 0; i < marker_id; ++i)
-            {
-                delete_marker.id = i;
-                people_markers.markers.push_back(delete_marker);
-            }
+            delete_marker.id = i;
+            people_markers.markers.push_back(delete_marker);
         }
+        // 人が検出されなかった場合、マーカーを削除する
+        // if (!people_detected)
+        // {
+        //     visualization_msgs::Marker delete_marker;
+        //     delete_marker.action = visualization_msgs::Marker::DELETE;
+        //     delete_marker.ns = "detected_people";
+        //     for (int i = 0; i < marker_id; ++i)
+        //     {
+        //         delete_marker.id = i;
+        //         people_markers.markers.push_back(delete_marker);
+        //     }
+        // }
+
+
+        // visualization_msgs::Marker delete_marker;
+        // delete_marker.action = visualization_msgs::Marker::DELETE;
+        // delete_marker.ns = "detected_people";
+        // for (int i = 0; i < marker_id; ++i)
+        // {
+        //     delete_marker.id = i;
+        //     people_markers.markers.push_back(delete_marker);
+        // }
 
         people_pub_.publish(people_markers);  // 人検出結果または削除結果をパブリッシュ
     }
+
+    */
 
     // クラスタ内の平均距離を計算
     double calculateAverageDistance(const std::vector<geometry_msgs::Point>& cluster)

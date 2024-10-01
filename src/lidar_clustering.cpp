@@ -108,6 +108,25 @@ private:
             }
 
             marker_array.markers.push_back(marker);
+
+            // IDをテキストとして表示するためのマーカーを作成
+            visualization_msgs::Marker text_marker;
+            text_marker.header.frame_id = "laser";
+            text_marker.header.stamp = ros::Time::now();
+            text_marker.ns = "cluster_text";
+            text_marker.id = i + clusters.size();  // 一意なIDを使うため、クラスタIDにオフセットを追加
+            text_marker.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
+            text_marker.action = visualization_msgs::Marker::ADD;
+            text_marker.pose.position = marker.points[0];  // テキストを表示する位置 (クラスタの最初のポイント)
+            text_marker.pose.position.z += 0.2;  // テキストが少し上に表示されるようにオフセット
+            text_marker.scale.z = 0.2;  // テキストのサイズ
+            text_marker.color.r = 1.0;
+            text_marker.color.g = 1.0;
+            text_marker.color.b = 1.0;
+            text_marker.color.a = 1.0;
+            text_marker.text = "ID: " + std::to_string(i);  // IDをテキストとして設定
+
+            marker_array.markers.push_back(text_marker);
         }
         if(marker_array.markers.size() <= 40){
             cluster_pub_.publish(marker_array);
@@ -174,9 +193,11 @@ private:
             //if ((avg_distance <= 5.0 && point_count >= 15 && point_count <= 70 &&length >= 0.25 && length <= 0.8 && aspect_ratio >= 2.5 && aspect_ratio <= 9.5) ||
             //    (avg_distance > 5.0 && point_count >= 10 && point_count <= 35 && avg_distance <= 10.0 && length >= 0.45 && length <= 0.65 && aspect_ratio >= 2.5 && aspect_ratio <= 7.5) ||
             //    (avg_distance > 10.0 && point_count >= 5 && point_count <= 18 && length >= 0.4 && length <= 0.85 && aspect_ratio >= 3.0 && aspect_ratio <= 20.0))
-            if ((avg_distance <= 5.0 && point_count >= 15 && point_count <= 70 &&length >= 0.25 && length <= 0.8 && aspect_ratio >= 1.0 && aspect_ratio <= 9.5) ||
-                (avg_distance > 5.0 && avg_distance <= 10.0 && point_count >= 10 && point_count <= 35 && length >= 0.25 && length <= 0.65 && aspect_ratio >= 1.0 && aspect_ratio <= 7.5) ||
-                (avg_distance > 10.0 && point_count >= 5 && point_count <= 18 && length >= 0.25 && length <= 0.85 && aspect_ratio >= 1.0 && aspect_ratio <= 20.0))
+            if (
+                (avg_distance <= 5.0 && point_count >= 15 && point_count <= 70 && length >= 0.25 && length <= 0.7 && aspect_ratio >= 1.0 && aspect_ratio <= 3.0) 
+                ||(avg_distance > 5.0 && avg_distance <= 10.0 && point_count >= 10 && point_count <= 35 && length >= 0.25 && length <= 0.65 && aspect_ratio >= 1.0 && aspect_ratio <= 3.0) ||
+                (avg_distance > 10.0 && point_count >= 5 && point_count <= 18 && length >= 0.25 && length <= 0.7 && aspect_ratio >= 1.0 && aspect_ratio <= 3.0)
+                )
             {
                 ROS_INFO("Human detected at average distance: %f with length: %f, aspect_ratio: %f", avg_distance, length, aspect_ratio);
 

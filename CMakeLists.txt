@@ -130,6 +130,12 @@ target_link_libraries(lidar_clustering
   ${catkin_LIBRARIES}
 )
 
+add_executable(find_people src/find_people.cpp)
+
+target_link_libraries(find_people
+  ${catkin_LIBRARIES}
+)
+
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
 #   src/${PROJECT_NAME}/lidar_clustering.cpp

@@ -9,6 +9,8 @@
     ],
     "files.associations": {
         "iterator": "cpp",
-        "cmath": "cpp"
+        "cmath": "cpp",
+        "string_view": "cpp",
+        "tuple": "cpp"
     }
 }

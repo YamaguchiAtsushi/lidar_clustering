@@ -34,7 +34,7 @@ public:
         std::vector<std::vector<geometry_msgs::Point>> clusters;
         std::vector<geometry_msgs::Point> current_cluster;
 
-        double distance_threshold = 0.1;
+        double distance_threshold = 0.2;
 
         for (size_t i = 0; i < scan->ranges.size(); ++i)
         {
@@ -77,6 +77,7 @@ private:
     ros::Publisher people_pub_;
 
     std::vector<Person> tracked_people_; // 追跡中の人々のリスト
+    std::vector<int> deleted_ids; //削除される人のID
     int next_id_; // 次に使用するID
 
     double distance(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2)
@@ -168,115 +169,148 @@ void detectAndTrackPeople(const std::vector<std::vector<geometry_msgs::Point>>& 
     // 追跡結果を可視化
     for (size_t i = 0; i < tracked_people_.size(); ++i)
     {
-        tracked_people_[i].id = i + 1;  // IDを1から始まるように設定
-        publishPersonMarker(people_markers, tracked_people_[i], i);
+        //tracked_people_[i].id = i + 1;  // IDを1から始まるように設定←これを解除するとid=1が生成される
+        publishPersonMarker(people_markers, tracked_people_[i], tracked_people_[i].id);
     }
 
     people_pub_.publish(people_markers);
 }
-    void updateTrackedPeople(std::vector<Person>& detected_people)
-    {
-        double tracking_threshold = 0.1;  // 人を追跡するための距離閾値
 
-        // 既存のトラッキング情報を更新
-        for (auto& tracked_person : tracked_people_)
+void updateTrackedPeople(std::vector<Person>& detected_people)
+{
+    double tracking_threshold = 0.5;  // 人を追跡するための距離閾値
+
+    // 既存のトラッキング情報を更新
+    for (auto& tracked_person : tracked_people_)
+    {
+        tracked_person.is_tracked = false;
+    }
+
+    // 新しく検出された人物と、既存の追跡情報をマッチング
+    for (auto& detected_person : detected_people)
+    {
+        double min_distance = std::numeric_limits<double>::max();
+        int best_match_index = -1;
+
+        // 過去に削除された人物も含めて再トラッキングを試みる
+        for (size_t i = 0; i < tracked_people_.size(); ++i)
         {
-            tracked_person.is_tracked = false;
+            double dist = distance(tracked_people_[i].min_point, detected_person.min_point);
+            if (dist < min_distance && dist < tracking_threshold)
+            {
+                min_distance = dist;
+                best_match_index = i;
+            }
         }
 
-        // 新しく検出された人物と、既存の追跡情報をマッチング
-        for (auto& detected_person : detected_people)
+        // マッチする人が見つかった場合、その人を追跡対象として更新
+        if (best_match_index != -1)
         {
-            double min_distance = std::numeric_limits<double>::max();
-            int best_match_index = -1;
-
-            for (size_t i = 0; i < tracked_people_.size(); ++i)
+            tracked_people_[best_match_index].points = detected_person.points;
+            tracked_people_[best_match_index].min_point = detected_person.min_point;
+            tracked_people_[best_match_index].max_point = detected_person.max_point;
+            tracked_people_[best_match_index].length = detected_person.length;
+            tracked_people_[best_match_index].aspect_ratio = detected_person.aspect_ratio;
+            tracked_people_[best_match_index].average_distance = detected_person.average_distance;
+            tracked_people_[best_match_index].is_tracked = true;
+        }
+        else
+        {
+            // マッチしなかった場合は新しい人物として追加
+            if (!deleted_ids.empty())
             {
-                double dist = distance(tracked_people_[i].min_point, detected_person.min_point);
-                if (dist < min_distance && dist < tracking_threshold)
-                {
-                    min_distance = dist;
-                    best_match_index = i;
-                }
-            }
+                detected_person.id = deleted_ids.front();  // 削除されたIDを再利用
+                deleted_ids.erase(deleted_ids.begin());   // 先頭要素を削除
+                // detected_person.id = next_id_++;
 
-            // マッチする人が見つかった場合、その人を追跡対象として更新
-            if (best_match_index != -1)
-            {
-                tracked_people_[best_match_index].points = detected_person.points;
-                tracked_people_[best_match_index].min_point = detected_person.min_point;
-                tracked_people_[best_match_index].max_point = detected_person.max_point;
-                tracked_people_[best_match_index].length = detected_person.length;
-                tracked_people_[best_match_index].aspect_ratio = detected_person.aspect_ratio;
-                tracked_people_[best_match_index].average_distance = detected_person.average_distance;
-                tracked_people_[best_match_index].is_tracked = true;
             }
             else
             {
-                // マッチしなかった場合は新しい人物として追加
                 detected_person.id = next_id_++;
-                detected_person.is_tracked = true;
-                tracked_people_.push_back(detected_person);
             }
+
+            detected_person.is_tracked = true;
+            tracked_people_.push_back(detected_person);
         }
-
-        // 追跡されていない人物を削除
-        tracked_people_.erase(
-            std::remove_if(tracked_people_.begin(), tracked_people_.end(),
-                           [](const Person& person) { return !person.is_tracked; }),
-            tracked_people_.end());
     }
 
-
-    void publishPersonMarker(visualization_msgs::MarkerArray& markers, const Person& person, int marker_id)
+    // 追跡されていない人物を削除し、IDを保存
+    for (auto it = tracked_people_.begin(); it != tracked_people_.end(); )
     {
-        // 人物のための立方体マーカーを作成
-        visualization_msgs::Marker marker;
-        marker.header.frame_id = "laser";
-        marker.header.stamp = ros::Time::now();
-        marker.ns = "people";
-        marker.id = marker_id;
-        marker.type = visualization_msgs::Marker::CUBE;
-        marker.action = visualization_msgs::Marker::ADD;
-
-        // バウンディングボックスの中心点を計算
-        geometry_msgs::Point center;
-        center.x = (person.min_point.x + person.max_point.x) / 2.0;
-        center.y = (person.min_point.y + person.max_point.y) / 2.0;
-        center.z = 0.0;  // Z軸は0に固定
-
-        marker.pose.position = center;
-        marker.scale.x = person.length;  // 幅
-        marker.scale.y = 0.5;             // 奥行き
-        marker.scale.z = 0.0;             // 高さ
-        marker.color.r = 0.0;
-        marker.color.g = 0.0;
-        marker.color.b = 1.0;
-        marker.color.a = 1.0;
-
-        markers.markers.push_back(marker);
-
-        // IDを表示するためのテキストマーカーを追加
-        visualization_msgs::Marker text_marker;
-        text_marker.header.frame_id = "laser";
-        text_marker.header.stamp = ros::Time::now();
-        text_marker.ns = "cluster_text";
-        text_marker.id = marker_id + 1000;  // 一意なIDを使うため、オフセットを追加
-        text_marker.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
-        text_marker.action = visualization_msgs::Marker::ADD;
-        text_marker.pose.position = center;
-        text_marker.pose.position.z += 0.2;
-        text_marker.scale.z = 0.2;
-        text_marker.color.r = 1.0;
-        text_marker.color.g = 1.0;
-        text_marker.color.b = 1.0;
-        text_marker.color.a = 1.0;
-
-        // detected_person.idを表示
-        text_marker.text = "ID: " + std::to_string(person.id);
-
-        markers.markers.push_back(text_marker);
+        if (!it->is_tracked)
+        {
+            deleted_ids.push_back(it->id);  // 削除する人物のIDを保存
+            it = tracked_people_.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
     }
+}
+
+
+void publishPersonMarker(visualization_msgs::MarkerArray& markers, const Person& person, int marker_id)
+{
+    // 既存のマーカーを削除するためのマーカーを追加
+    visualization_msgs::Marker delete_marker;
+    delete_marker.header.frame_id = "laser";
+    delete_marker.header.stamp = ros::Time::now();
+    delete_marker.ns = "people";
+    delete_marker.id = marker_id;  // 同じIDを使用
+    delete_marker.type = visualization_msgs::Marker::CUBE;
+    delete_marker.action = visualization_msgs::Marker::DELETE;
+
+    markers.markers.push_back(delete_marker);
+
+    // 新しい人物のための立方体マーカーを作成
+    visualization_msgs::Marker marker;
+    marker.header.frame_id = "laser";
+    marker.header.stamp = ros::Time::now();
+    marker.ns = "people";
+    marker.id = marker_id;  // 同じIDを使用
+    marker.type = visualization_msgs::Marker::CUBE;
+    marker.action = visualization_msgs::Marker::ADD;
+
+    // バウンディングボックスの中心点を計算
+    geometry_msgs::Point center;
+    center.x = (person.min_point.x + person.max_point.x) / 2.0;
+    center.y = (person.min_point.y + person.max_point.y) / 2.0;
+    center.z = 0.0;  // Z軸は0に固定
+
+    marker.pose.position = center;
+    marker.scale.x = person.length;  // 幅
+    marker.scale.y = 0.5;             // 奥行き
+    marker.scale.z = 0.0;             // 高さ
+    marker.color.r = 0.0;
+    marker.color.g = 0.0;
+    marker.color.b = 1.0;
+    marker.color.a = 1.0;
+
+    markers.markers.push_back(marker);
+
+    // IDを表示するためのテキストマーカーを追加
+    visualization_msgs::Marker text_marker;
+    text_marker.header.frame_id = "laser";
+    text_marker.header.stamp = ros::Time::now();
+    text_marker.ns = "cluster_text";
+    text_marker.id = marker_id + 1000;  // 一意なIDを使うため、オフセットを追加
+    text_marker.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
+    text_marker.action = visualization_msgs::Marker::ADD;
+    text_marker.pose.position = center;
+    text_marker.pose.position.z += 0.2;
+    text_marker.scale.z = 0.4;
+    text_marker.color.r = 1.0;
+    text_marker.color.g = 1.0;
+    text_marker.color.b = 1.0;
+    text_marker.color.a = 1.0;
+
+    // detected_person.idを表示
+    text_marker.text = "ID: " + std::to_string(person.id);
+
+    markers.markers.push_back(text_marker);
+}
+
 
     double calculateAverageDistance(const std::vector<geometry_msgs::Point>& points)
     {

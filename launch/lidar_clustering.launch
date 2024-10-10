@@ -1,11 +1,8 @@
 <?xml version="1.0"?>
 <launch>
-    <node name="hokuyo" pkg="hokuyo_node" type="hokuyo_node" respawn="false" output="screen">
-        <!-- Starts up faster, but timestamps will be inaccurate. --> 
-        <param name="calibrate_time" type="bool" value="false"/> 
-        <!-- Set the port to connect to here -->
-        <param name="serial_port" type="string" value="/dev/serial/by-id/usb-T-frog_project_T-frog_Driver-if00"/> 
-        <!-- <param name="intensity" type="bool" value="true"/> -->
+
+    <node pkg="urg_node" type="urg_node" name="urg_node">
+        <param name="serial_port" value="/dev/serial/by-id/usb-Hokuyo_Data_Flex_for_USB_URG-Series_USB_Driver-if00" />
     </node>
 
     <node name="lidar_clustering" pkg="lidar_clustering" type="lidar_clustering" output="screen"></node>

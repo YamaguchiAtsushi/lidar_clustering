@@ -216,18 +216,21 @@ void updateTrackedPeople(std::vector<Person>& detected_people)
         }
         else
         {
-            // マッチしなかった場合は新しい人物として追加
-            if (!deleted_ids.empty())
-            {
-                detected_person.id = deleted_ids.front();  // 削除されたIDを再利用
-                deleted_ids.erase(deleted_ids.begin());   // 先頭要素を削除
-                // detected_person.id = next_id_++;
+            detected_person.id = next_id_++;
 
-            }
-            else
-            {
-                detected_person.id = next_id_++;
-            }
+            
+            // マッチしなかった場合は新しい人物として追加
+            // if (!deleted_ids.empty())
+            // {
+            //     detected_person.id = deleted_ids.front();  // 削除されたIDを再利用
+            //     deleted_ids.erase(deleted_ids.begin());   // 先頭要素を削除
+            //     // detected_person.id = next_id_++;
+
+            // }
+            // else
+            // {
+            //     detected_person.id = next_id_++;
+            // }
 
             detected_person.is_tracked = true;
             tracked_people_.push_back(detected_person);
@@ -247,6 +250,8 @@ void updateTrackedPeople(std::vector<Person>& detected_people)
             ++it;
         }
     }
+
+
 }
 
 
@@ -271,6 +276,7 @@ void publishPersonMarker(visualization_msgs::MarkerArray& markers, const Person&
     marker.id = marker_id;  // 同じIDを使用
     marker.type = visualization_msgs::Marker::CUBE;
     marker.action = visualization_msgs::Marker::ADD;
+    marker.lifetime = ros::Duration(0.025); 
 
     // バウンディングボックスの中心点を計算
     geometry_msgs::Point center;
@@ -304,6 +310,8 @@ void publishPersonMarker(visualization_msgs::MarkerArray& markers, const Person&
     text_marker.color.g = 1.0;
     text_marker.color.b = 1.0;
     text_marker.color.a = 1.0;
+    text_marker.lifetime = ros::Duration(0.025); 
+
 
     // detected_person.idを表示
     text_marker.text = "ID: " + std::to_string(person.id);

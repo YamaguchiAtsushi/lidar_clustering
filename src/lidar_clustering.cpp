@@ -13,9 +13,11 @@ struct Person
     double average_distance;                   // 平均距離
     double length;                             // バウンディングボックスの長さ
     double aspect_ratio;                       // アスペクト比
+    double timeout_counter;
     geometry_msgs::Point min_point;            // バウンディングボックスの最小点
     geometry_msgs::Point max_point;            // バウンディングボックスの最大点
     int id;                                    // 人を一意に識別するID
+    bool is_lost;
     bool is_tracked;                           // この人が追跡されているかどうかのフラグ
 };
 
@@ -175,10 +177,11 @@ void detectAndTrackPeople(const std::vector<std::vector<geometry_msgs::Point>>& 
 
     people_pub_.publish(people_markers);
 }
-
 void updateTrackedPeople(std::vector<Person>& detected_people)
 {
     double tracking_threshold = 0.5;  // 人を追跡するための距離閾値
+    double timeout_threshold = 3;     // 人物が見失われてもトラッキングを保持するフレーム数
+    double recovery_threshold = 0.8;  // 見失われた人物を再検出するための距離閾値
 
     // 既存のトラッキング情報を更新
     for (auto& tracked_person : tracked_people_)
@@ -186,24 +189,33 @@ void updateTrackedPeople(std::vector<Person>& detected_people)
         tracked_person.is_tracked = false;
     }
 
-    // 新しく検出された人物と、既存の追跡情報をマッチング
+    // 新しく検出された人物と既存の追跡情報をマッチング
     for (auto& detected_person : detected_people)
     {
         double min_distance = std::numeric_limits<double>::max();
         int best_match_index = -1;
 
-        // 過去に削除された人物も含めて再トラッキングを試みる
+        // 過去のトラッキング情報と比較して最も近い人物を探す
         for (size_t i = 0; i < tracked_people_.size(); ++i)
         {
             double dist = distance(tracked_people_[i].min_point, detected_person.min_point);
+
+            // 通常のトラッキングのマッチング
             if (dist < min_distance && dist < tracking_threshold)
             {
                 min_distance = dist;
                 best_match_index = i;
             }
+            // 失踪中の人物の再検出
+            else if (tracked_people_[i].is_lost && dist < recovery_threshold)
+            {
+                // 失踪中の人物が見つかった場合
+                min_distance = dist;
+                best_match_index = i;
+            }
         }
 
-        // マッチする人が見つかった場合、その人を追跡対象として更新
+        // マッチする人物が見つかった場合、その人を追跡対象として更新
         if (best_match_index != -1)
         {
             tracked_people_[best_match_index].points = detected_person.points;
@@ -213,34 +225,41 @@ void updateTrackedPeople(std::vector<Person>& detected_people)
             tracked_people_[best_match_index].aspect_ratio = detected_person.aspect_ratio;
             tracked_people_[best_match_index].average_distance = detected_person.average_distance;
             tracked_people_[best_match_index].is_tracked = true;
+            tracked_people_[best_match_index].is_lost = false;  // 失踪解除
+            tracked_people_[best_match_index].timeout_counter = 0;  // カウンターリセット
         }
         else
         {
+            // 新しい人物として追加
             detected_person.id = next_id_++;
-
-            
-            // マッチしなかった場合は新しい人物として追加
-            // if (!deleted_ids.empty())
-            // {
-            //     detected_person.id = deleted_ids.front();  // 削除されたIDを再利用
-            //     deleted_ids.erase(deleted_ids.begin());   // 先頭要素を削除
-            //     // detected_person.id = next_id_++;
-
-            // }
-            // else
-            // {
-            //     detected_person.id = next_id_++;
-            // }
-
             detected_person.is_tracked = true;
+            detected_person.is_lost = false;
+            detected_person.timeout_counter = 0;
             tracked_people_.push_back(detected_person);
         }
     }
 
-    // 追跡されていない人物を削除し、IDを保存
+    // トラッキングの更新: 失踪した人物の処理
+    for (auto& tracked_person : tracked_people_)
+    {
+        if (!tracked_person.is_tracked)
+        {
+            // 失踪状態に移行する
+            if (tracked_person.timeout_counter >= timeout_threshold)
+            {
+                tracked_person.is_lost = true;
+            }
+            else
+            {
+                tracked_person.timeout_counter++;
+            }
+        }
+    }
+
+    // 追跡されていない人物の削除とID保存
     for (auto it = tracked_people_.begin(); it != tracked_people_.end(); )
     {
-        if (!it->is_tracked)
+        if (it->is_lost && it->timeout_counter >= timeout_threshold)
         {
             deleted_ids.push_back(it->id);  // 削除する人物のIDを保存
             it = tracked_people_.erase(it);
@@ -250,8 +269,6 @@ void updateTrackedPeople(std::vector<Person>& detected_people)
             ++it;
         }
     }
-
-
 }
 
 

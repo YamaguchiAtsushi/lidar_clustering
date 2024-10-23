@@ -39,7 +39,7 @@ public:
         std::vector<geometry_msgs::Point> current_cluster;
 
         // 各スキャンごとに初期化すべき変数を宣言
-        double distance_threshold = 0.2;
+        double distance_threshold = 0.1;
         double cluster_sum_x = 0.0;
         double cluster_sum_y = 0.0;
         double cluster_distance_min = std::numeric_limits<double>::max();
@@ -108,6 +108,21 @@ public:
                         cluster_flag = 1;
                     }
                 }
+
+                else if((angle_deg >= -90 && angle_deg <= -10) || (angle_deg >= 10 && angle_deg <= 90)){
+                      double distance_judge = distance * std::sin(angle_rad);
+                      if(-0.5 < distance_judge && distance_judge < 0.5){
+                        cluster_flag = 1;
+                      }
+                }
+
+        //     else if ((angle_deg >= -90 && angle_deg <= -10) || (angle_deg >= 10 && angle_deg <= 90)) {
+        //         double distance_judge = distance * std::sin(angle_rad);
+        //         if (-0.5 < distance_judge && distance_judge < 0.5) {
+        //             nearCluster(clusters);
+
+        //         }
+
                 cluster_sum_x += point.x;
                 cluster_sum_y += point.y;
             }

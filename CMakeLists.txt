@@ -130,9 +130,27 @@ target_link_libraries(lidar_clustering
   ${catkin_LIBRARIES}
 )
 
+add_executable(lidar_clustering_ver2 src/lidar_clustering_ver2.cpp)
+
+target_link_libraries(lidar_clustering_ver2
+  ${catkin_LIBRARIES}
+)
+
+add_executable(front_clustering src/front_clustering.cpp)
+
+target_link_libraries(front_clustering
+  ${catkin_LIBRARIES}
+)
+
 add_executable(find_people src/find_people.cpp)
 
 target_link_libraries(find_people
+  ${catkin_LIBRARIES}
+)
+
+add_executable(find_people_ver2 src/find_people_ver2.cpp)
+
+target_link_libraries(find_people_ver2
   ${catkin_LIBRARIES}
 )
 

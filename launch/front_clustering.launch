@@ -1,11 +1,11 @@
 <?xml version="1.0"?>
 <launch>
-    <!-- src_bagの定義 -->
-    <arg name="bag_file" default="/home/yamaguchi-a/catkin_ws/src/lidar_clustering/bag/test3.bag" />
+    <node pkg="urg_node" type="urg_node" name="urg_node">
+        <param name="serial_port" value="/dev/serial/by-id/usb-Hokuyo_Data_Flex_for_USB_URG-Series_USB_Driver-if00" />
+    </node>
 
-    <!-- rosbag playノード -->
-    <node pkg="rosbag" type="play" name="bag_player" args="--clock $(arg bag_file)" required="true"/>
 
+    
     <!-- lidar_clusteringノード -->
     <!-- <node name="lidar_clustering" pkg="lidar_clustering" type="lidar_clustering" output="screen">
     </node> -->
@@ -14,11 +14,11 @@
     </node> -->
 
 
-    <!-- <node name="front_clustering" pkg="lidar_clustering" type="front_clustering" output="screen">
-    </node> -->
-
-    <node name="find_people" pkg="lidar_clustering" type="find_people" output="screen">
+    <node name="front_clustering" pkg="lidar_clustering" type="front_clustering" output="screen">
     </node>
+
+    <!-- <node name="find_people" pkg="lidar_clustering" type="find_people" output="screen">
+    </node> -->
 
     <!-- <node name="find_people_ver2" pkg="lidar_clustering" type="find_people_ver2" output="screen">
     </node> -->

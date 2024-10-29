@@ -171,18 +171,6 @@ private:
                 publishPersonMarker(detected_people_markers, person, marker_id++, 0.0, 0.0, 1.0);
             }
 
-            // trackPeople(detected_people);//場所はここでいいのか？？場所を変える場合、personの定義が必要
-            // publishPersonMarker(tracked_people_markers, person, marker_id++, 1.0, 0.0, 0.0);
-
-            // std::vector<Person> tracked_people;
-            // std::vector<std::vector<geometry_msgs::Point>> tracked_clusters;
-
-            // for (size_t i = 0; i < tracked_people.size(); i++) {
-            //     tracked_clusters.push_back(tracked_people[i].points); // j インデックスでアクセス
-            // }
-
-            // publishClusters(tracked_clusters);
-
         }
         std::cout << "tracked_people.size()_4:" << tracked_people.size() << std::endl << std::endl;
 
@@ -190,10 +178,6 @@ private:
 
         trackPeople(detected_people);//場所はここでいいのか？？場所を変える場合、personの定義が必要
 
-        // for(size_t i = 0; i < tracked_people.size(); i++){
-        //     // trackPeople(detected_people);//場所はここでいいのか？？場所を変える場合、personの定義が必要
-        //     publishPersonMarker(tracked_people_markers, tracked_people[i], marker_id++, 1.0, 0.0, 0.0);
-        // }
 
         detected_people_pub_.publish(detected_people_markers);
         // tracked_people_pub_.publish(tracked_people_markers);
@@ -225,6 +209,8 @@ private:
                         if(people_movement_min > people_movement){
                             people_movement_min = people_movement;
                             matching_people_number = j;
+                            // matching_people_number = tracked_people[j].id;
+
                             std::cout << "b" << std::endl;
                             
                         }
@@ -232,21 +218,36 @@ private:
                 }
 
                 if(matching_people_number != -1){//すべてのマッチング探索後に、最適なマッチングをする
-                    tracked_people[matching_people_number] = detected_people[i];
-                    tracked_people[matching_people_number].is_matched = true;
-                    detected_people[i].is_matched = true;//重複マッチングの防止
-                    std::cout << "tracked_people_id:" << tracked_people[matching_people_number].id << std::endl;
+                    // detected_people[i] = tracked_people[matching_people_number];
+                    detected_people[i].is_matched = true;
+                    detected_people[i].id = tracked_people[matching_people_number].id;
+
+
+                    // tracked_people[matching_people_number] = detected_people[i];
+                    // tracked_people[matching_people_number].is_matched = true;
+                    // detected_people[i].is_matched = true;//重複マッチングの防止
+                    // std::cout << "tracked_people_id:" << tracked_people[matching_people_number].id << std::endl;
                 }
+                else{
+                    detected_people[i].id = tracked_people.size() + i; //マッチングしなかったものを含める
+                }
+
             }
 
             // is_matched が false の要素を削除
-            for (size_t j = 0; j < tracked_people.size(); ) {
-                if (!tracked_people[j].is_matched) {
-                    tracked_people.erase(tracked_people.begin() + j);
-                } else {
-                    j++; // 削除しない場合はインデックスを進める
-                }
-            }
+            // for (size_t j = 0; j < tracked_people.size(); ) {
+            //     if (!tracked_people[j].is_matched) {
+            //         tracked_people.erase(tracked_people.begin() + j);
+            //     } else {
+            //         j++; // 削除しない場合はインデックスを進める
+            //     }
+            // }
+            // is_matched が false の要素を削除
+            detected_people.erase(
+                std::remove_if(detected_people.begin(), detected_people.end(),
+                            [](const auto& person) { return !person.is_matched; }),
+                detected_people.end());
+
         } else {
             std::cout << "c" << std::endl;
 
@@ -254,19 +255,26 @@ private:
             for(size_t i = 0; i < detected_people.size(); i++){
                 detected_people[i].id = i;//rviz上のid
                 tracked_people.push_back(detected_people[i]);
+                std::cout << "first_people_id" << tracked_people[i].id << std::endl;
                 std::cout << "d" << std::endl;
 
             }
+                    
+        }
 
-            // for (const auto& person : detected_people) {
-            //     tracked_people.push_back(person);
-            // }
+        // 各vectorの中身を消去
+        tracked_people.clear();
+
+        for(size_t i = 0; i < detected_people.size(); i++){
+            tracked_people.push_back(detected_people[i]);
+            
         }
         
         for(size_t i = 0; i < tracked_people.size(); i++){
             // trackPeople(detected_people);//場所はここでいいのか？？場所を変える場合、personの定義が必要
             publishPersonMarker(tracked_people_markers, tracked_people[i], marker_id++, 1.0, 0.0, 0.0);
         }
+
         tracked_people_pub_.publish(tracked_people_markers);
 
         std::cout << "detected_people.size():" << detected_people.size() << std::endl;

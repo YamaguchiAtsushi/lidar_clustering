@@ -16,6 +16,7 @@ struct Person
     geometry_msgs::Point min_point;             // バウンディングボックスの最小点
     geometry_msgs::Point max_point;             // バウンディングボックスの最大点
     bool is_matched;
+    int id;
 };
 
 class LidarClustering
@@ -108,7 +109,7 @@ private:
             }
 
             marker_array.markers.push_back(marker);
-            addTextMarker(marker_array, i, marker.points[0]);
+            // addTextMarker(marker_array, i, marker.points[0]);
         }
 
         cluster_pub_.publish(marker_array);
@@ -138,12 +139,14 @@ private:
     void detectPeople(const std::vector<std::vector<geometry_msgs::Point>>& clusters)
     {
         visualization_msgs::MarkerArray detected_people_markers;
-        visualization_msgs::MarkerArray tracked_people_markers;
+        // visualization_msgs::MarkerArray tracked_people_markers;
 
         int marker_id = 0;
 
         // 人の検出結果を管理するためのリスト
         std::vector<Person> detected_people;
+        std::vector<Person> tracked_people;
+
 
         for (const auto& cluster : clusters)
         {
@@ -164,19 +167,31 @@ private:
                 publishPersonMarker(detected_people_markers, person, marker_id++, 0.0, 0.0, 1.0);
             }
 
-            trackPeople(detected_people);//場所はここでいいのか？？場所を変える場合、personの定義が必要
-            publishPersonMarker(tracked_people_markers, person, marker_id++, 1.0, 0.0, 0.0);
-            // std::vector<Person> tracked_people;
+            // trackPeople(detected_people);//場所はここでいいのか？？場所を変える場合、personの定義が必要
+            // publishPersonMarker(tracked_people_markers, person, marker_id++, 1.0, 0.0, 0.0);
 
-            // for(const auto& tracked_person : tracked_people){
-            //     tracked_clusters.push_back(tracked_people.points);
+            // std::vector<Person> tracked_people;
+            // std::vector<std::vector<geometry_msgs::Point>> tracked_clusters;
+
+            // for (size_t i = 0; i < tracked_people.size(); i++) {
+            //     tracked_clusters.push_back(tracked_people[i].points); // j インデックスでアクセス
             // }
+
             // publishClusters(tracked_clusters);
 
         }
 
+        std::cout << "tracked_people.size()_1:" << tracked_people.size() << std::endl << std::endl;
+
+        trackPeople(detected_people);//場所はここでいいのか？？場所を変える場合、personの定義が必要
+
+        // for(size_t i = 0; i < tracked_people.size(); i++){
+        //     // trackPeople(detected_people);//場所はここでいいのか？？場所を変える場合、personの定義が必要
+        //     publishPersonMarker(tracked_people_markers, tracked_people[i], marker_id++, 1.0, 0.0, 0.0);
+        // }
+
         // detected_people_pub_.publish(detected_people_markers);
-        tracked_people_pub_.publish(tracked_people_markers);
+        // tracked_people_pub_.publish(tracked_people_markers);
 
     }
 
@@ -184,9 +199,15 @@ private:
         double people_movement_min;
         double people_movement;
         int matching_people_number = -1;
+        int marker_id = 0;
+
 
         std::vector<Person> tracked_people;
+        visualization_msgs::MarkerArray tracked_people_markers;
+
+
         if(!tracked_people.empty()){
+            std::cout << "a" << std::endl;
             for(size_t i = 0; i < detected_people.size(); i++){
                 detected_people[i].is_matched = false;
                 people_movement_min = 10000;
@@ -198,6 +219,8 @@ private:
                         if(people_movement_min > people_movement){
                             people_movement_min = people_movement;
                             matching_people_number = j;
+                            std::cout << "b" << std::endl;
+                            
                         }
                     }
                 }
@@ -206,6 +229,7 @@ private:
                     tracked_people[matching_people_number] = detected_people[i];
                     tracked_people[matching_people_number].is_matched = true;
                     detected_people[i].is_matched = true;//重複マッチングの防止
+                    std::cout << "tracked_people_id:" << tracked_people[matching_people_number].id << std::endl;
                 }
             }
 
@@ -218,15 +242,29 @@ private:
                 }
             }
         } else {
+            std::cout << "c" << std::endl;
+
             // tracked_people が空の場合、初期化
-            for (const auto& person : detected_people) {
-                tracked_people.push_back(person);
+            for(size_t i = 0; i < detected_people.size(); i++){
+                detected_people[i].id = i;
+                tracked_people.push_back(detected_people[i]);
+                std::cout << "d" << std::endl;
+
             }
+
+            // for (const auto& person : detected_people) {
+            //     tracked_people.push_back(person);
+            // }
         }
         
+        for(size_t i = 0; i < tracked_people.size(); i++){
+            // trackPeople(detected_people);//場所はここでいいのか？？場所を変える場合、personの定義が必要
+            publishPersonMarker(tracked_people_markers, tracked_people[i], marker_id++, 1.0, 0.0, 0.0);
+        }
+        tracked_people_pub_.publish(tracked_people_markers);
 
         std::cout << "detected_people.size():" << detected_people.size() << std::endl;
-        std::cout << "tracked_people.size():" << tracked_people.size() << std::endl << std::endl;
+        std::cout << "tracked_people.size()_2:" << tracked_people.size() << std::endl << std::endl;
 
     }
 
@@ -325,7 +363,30 @@ private:
         bbox_marker.points.push_back(p4);
         bbox_marker.points.push_back(p1);
 
+        // IDを表示するためのテキストマーカーを追加
+        visualization_msgs::Marker text_marker;
+        text_marker.header.frame_id = "laser";
+        text_marker.header.stamp = ros::Time::now();
+        text_marker.ns = "cluster_text";
+        text_marker.id = marker_id + 1000;  // 一意なIDを使うため、オフセットを追加
+        text_marker.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
+        text_marker.action = visualization_msgs::Marker::ADD;
+        text_marker.pose.position = p1;
+        text_marker.pose.position.z += 0.2;
+        text_marker.scale.z = 0.4;
+        text_marker.color.r = 1.0;
+        text_marker.color.g = 1.0;
+        text_marker.color.b = 1.0;
+        text_marker.color.a = 1.0;
+        text_marker.lifetime = ros::Duration(0.025); 
+
+        // detected_person.idを表示
+        // text_marker.text = "ID: " + std::to_string(person.id);
+        text_marker.text = "ID: " + std::to_string(person.id);
+
+    
         people_markers.markers.push_back(bbox_marker);
+        people_markers.markers.push_back(text_marker);
     }
 
     std::pair<geometry_msgs::Point, geometry_msgs::Point> calculateBoundingBox(const std::vector<geometry_msgs::Point>& cluster)

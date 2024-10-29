@@ -242,11 +242,13 @@ private:
             //         j++; // 削除しない場合はインデックスを進める
             //     }
             // }
+
+            
             // is_matched が false の要素を削除
-            detected_people.erase(
-                std::remove_if(detected_people.begin(), detected_people.end(),
-                            [](const auto& person) { return !person.is_matched; }),
-                detected_people.end());
+            // detected_people.erase(
+            //     std::remove_if(detected_people.begin(), detected_people.end(),
+            //                 [](const auto& person) { return !person.is_matched; }),
+            //     detected_people.end());
 
         } else {
             std::cout << "c" << std::endl;
@@ -263,7 +265,7 @@ private:
         }
 
         // 各vectorの中身を消去
-        tracked_people.clear();
+        tracked_people.clear();//ここで番号が初期化されてる？？
 
         for(size_t i = 0; i < detected_people.size(); i++){
             tracked_people.push_back(detected_people[i]);

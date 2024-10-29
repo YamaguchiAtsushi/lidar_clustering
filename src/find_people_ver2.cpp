@@ -22,7 +22,7 @@ struct Person
 class LidarClustering
 {
 public:
-    LidarClustering()
+    LidarClustering() : marker_id(0)
     {
         scan_sub_ = nh_.subscribe("/scan", 10, &LidarClustering::scanCallback, this);
         cluster_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("lidar_clusters", 10);
@@ -78,6 +78,11 @@ private:
     ros::Publisher cluster_pub_;
     ros::Publisher detected_people_pub_;
     ros::Publisher tracked_people_pub_;
+
+    int marker_id;
+    // 人の検出結果を管理するためのリスト
+    // std::vector<Person> detected_people;
+    std::vector<Person> tracked_people;
 
 
     double distance(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2)
@@ -141,11 +146,9 @@ private:
         visualization_msgs::MarkerArray detected_people_markers;
         // visualization_msgs::MarkerArray tracked_people_markers;
 
-        int marker_id = 0;
+        int marker_id;
 
-        // 人の検出結果を管理するためのリスト
-        std::vector<Person> detected_people;
-        std::vector<Person> tracked_people;
+        std::vector<Person> detected_people;//毎回初期化できてる？？
 
 
         for (const auto& cluster : clusters)
@@ -159,6 +162,7 @@ private:
             person.max_point = bounding_box.second;
             person.length = calculateLength(person.min_point, person.max_point);
             person.aspect_ratio = calculateAspectRatio(person.length, person.min_point, person.max_point);
+            person.id = -1;//rviz上のid
 
             // フィルタリング条件を満たすかチェック
             if (isValidPerson(person))
@@ -180,8 +184,9 @@ private:
             // publishClusters(tracked_clusters);
 
         }
+        std::cout << "tracked_people.size()_4:" << tracked_people.size() << std::endl << std::endl;
 
-        std::cout << "tracked_people.size()_1:" << tracked_people.size() << std::endl << std::endl;
+        // std::cout << "tracked_people.size()_1:" << tracked_people.size() << std::endl << std::endl;
 
         trackPeople(detected_people);//場所はここでいいのか？？場所を変える場合、personの定義が必要
 
@@ -190,7 +195,7 @@ private:
         //     publishPersonMarker(tracked_people_markers, tracked_people[i], marker_id++, 1.0, 0.0, 0.0);
         // }
 
-        // detected_people_pub_.publish(detected_people_markers);
+        detected_people_pub_.publish(detected_people_markers);
         // tracked_people_pub_.publish(tracked_people_markers);
 
     }
@@ -199,12 +204,13 @@ private:
         double people_movement_min;
         double people_movement;
         int matching_people_number = -1;
-        int marker_id = 0;
+        int marker_id ;
 
 
-        std::vector<Person> tracked_people;
+        // std::vector<Person> tracked_people;
         visualization_msgs::MarkerArray tracked_people_markers;
 
+        std::cout << "tracked_people.size()_2:" << tracked_people.size() << std::endl << std::endl;
 
         if(!tracked_people.empty()){
             std::cout << "a" << std::endl;
@@ -246,7 +252,7 @@ private:
 
             // tracked_people が空の場合、初期化
             for(size_t i = 0; i < detected_people.size(); i++){
-                detected_people[i].id = i;
+                detected_people[i].id = i;//rviz上のid
                 tracked_people.push_back(detected_people[i]);
                 std::cout << "d" << std::endl;
 
@@ -264,7 +270,7 @@ private:
         tracked_people_pub_.publish(tracked_people_markers);
 
         std::cout << "detected_people.size():" << detected_people.size() << std::endl;
-        std::cout << "tracked_people.size()_2:" << tracked_people.size() << std::endl << std::endl;
+        std::cout << "tracked_people.size()_3:" << tracked_people.size() << std::endl << std::endl;
 
     }
 

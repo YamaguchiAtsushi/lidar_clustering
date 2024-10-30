@@ -189,6 +189,7 @@ private:
         double people_movement;
         int matching_people_number = -1;
         int marker_id ;
+        int tracked_people_max_number;
 
 
         // std::vector<Person> tracked_people;
@@ -198,10 +199,13 @@ private:
 
         if(!tracked_people.empty()){
             std::cout << "a" << std::endl;
+            int k = 0;
             for(size_t i = 0; i < detected_people.size(); i++){
                 detected_people[i].is_matched = false;
                 people_movement_min = 10000;
                 matching_people_number = -1;
+
+                tracked_people_max_number = 0;
 
                 for(size_t j = 0; j < tracked_people.size(); j++){
                     people_movement = distance(calcAveragePoint(detected_people[i].points), calcAveragePoint(tracked_people[j].points));
@@ -214,6 +218,10 @@ private:
                             std::cout << "b" << std::endl;
                             
                         }
+                    }
+                    
+                    if(tracked_people_max_number < tracked_people[j].id){//新しい番号を付与するのに使う
+                        tracked_people_max_number = tracked_people[j].id;
                     }
                 }
 
@@ -229,7 +237,8 @@ private:
                     // std::cout << "tracked_people_id:" << tracked_people[matching_people_number].id << std::endl;
                 }
                 else{
-                    detected_people[i].id = tracked_people.size() + i; //マッチングしなかったものを含める
+                    k++;
+                    detected_people[i].id = tracked_people_max_number + k; //マッチングしなかったものを含める
                 }
 
             }
@@ -243,7 +252,7 @@ private:
             //     }
             // }
 
-            
+
             // is_matched が false の要素を削除
             // detected_people.erase(
             //     std::remove_if(detected_people.begin(), detected_people.end(),

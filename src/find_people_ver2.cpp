@@ -36,6 +36,7 @@ struct Person
     geometry_msgs::Point max_point;             // バウンディングボックスの最大点
     bool is_matched;
     int id;
+    int lost_num;
 };
 
 class LidarClustering

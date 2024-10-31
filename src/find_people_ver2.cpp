@@ -7,6 +7,25 @@
 #include <algorithm>
 #include <limits>
 
+
+//IDが初期化されたときのlog
+// a
+// detected_people.size():0
+// tracked_people.size()_3:3
+
+// tracked_people.size()_4:0
+
+// tracked_people.size()_2:0
+
+// c
+// first_people_id0
+// d
+// first_people_id1
+// d
+// first_people_id2
+// d
+// detected_people.size():3
+
 struct Person
 {
     std::vector<geometry_msgs::Point> points;  // 検出された点の集まり
@@ -273,14 +292,6 @@ private:
                     
         }
 
-        // 各vectorの中身を消去
-        tracked_people.clear();//ここで番号が初期化されてる？？
-
-        for(size_t i = 0; i < detected_people.size(); i++){
-            tracked_people.push_back(detected_people[i]);
-            
-        }
-        
         for(size_t i = 0; i < tracked_people.size(); i++){
             // trackPeople(detected_people);//場所はここでいいのか？？場所を変える場合、personの定義が必要
             publishPersonMarker(tracked_people_markers, tracked_people[i], marker_id++, 1.0, 0.0, 0.0);
@@ -290,6 +301,18 @@ private:
 
         std::cout << "detected_people.size():" << detected_people.size() << std::endl;
         std::cout << "tracked_people.size()_3:" << tracked_people.size() << std::endl << std::endl;
+
+        // 各vectorの中身を消去
+        tracked_people.clear();//ここで番号が初期化されてる？？
+
+        for(size_t i = 0; i < detected_people.size(); i++){//detected_peopleがtracked_peopleにコピーされているだけ
+            // if(detected_people[i].is_matched == true){
+            //     tracked_people.push_back(detected_people[i]);
+            // }
+    
+            tracked_people.push_back(detected_people[i]);
+            
+        }
 
     }
 

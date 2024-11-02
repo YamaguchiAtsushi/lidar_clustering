@@ -34,9 +34,10 @@ struct Person
     double aspect_ratio;                         // アスペクト比
     geometry_msgs::Point min_point;             // バウンディングボックスの最小点
     geometry_msgs::Point max_point;             // バウンディングボックスの最大点
-    bool is_matched;
+    bool is_matched = false;
+    bool is_matched_track = false;//追加11/1
     int id;
-    int lost_num;
+    int lost_num = 0;
 };
 
 class LidarClustering
@@ -192,9 +193,8 @@ private:
             }
 
         }
-        std::cout << "tracked_people.size()_4:" << tracked_people.size() << std::endl << std::endl;
+        
 
-        // std::cout << "tracked_people.size()_1:" << tracked_people.size() << std::endl << std::endl;
 
         trackPeople(detected_people);//場所はここでいいのか？？場所を変える場合、personの定義が必要
 
@@ -208,23 +208,23 @@ private:
         double people_movement_min;
         double people_movement;
         int matching_people_number = -1;
+        int matching_people_number_now;//追加10/31
         int marker_id ;
         int tracked_people_max_number;
-
+        std::vector<int> matching_people_num;
 
         // std::vector<Person> tracked_people;
         visualization_msgs::MarkerArray tracked_people_markers;
-
-        std::cout << "tracked_people.size()_2:" << tracked_people.size() << std::endl << std::endl;
 
         if(!tracked_people.empty()){
             std::cout << "a" << std::endl;
             int k = 0;
             for(size_t i = 0; i < detected_people.size(); i++){
                 detected_people[i].is_matched = false;
+                detected_people[i].lost_num = 0;
                 people_movement_min = 10000;
                 matching_people_number = -1;
-
+                matching_people_number_now = 0;
                 tracked_people_max_number = 0;
 
                 for(size_t j = 0; j < tracked_people.size(); j++){
@@ -233,13 +233,9 @@ private:
                         if(people_movement_min > people_movement){
                             people_movement_min = people_movement;
                             matching_people_number = j;
-                            // matching_people_number = tracked_people[j].id;
-
-                            std::cout << "b" << std::endl;
-                            
+                            std::cout << "b" << std::endl;       
                         }
                     }
-                    
                     if(tracked_people_max_number < tracked_people[j].id){//新しい番号を付与するのに使う
                         tracked_people_max_number = tracked_people[j].id;
                     }
@@ -248,49 +244,32 @@ private:
                 if(matching_people_number != -1){//すべてのマッチング探索後に、最適なマッチングをする
                     // detected_people[i] = tracked_people[matching_people_number];
                     detected_people[i].is_matched = true;
+                    tracked_people[matching_people_number].is_matched_track = true;//追加11/1
                     detected_people[i].id = tracked_people[matching_people_number].id;
-
-
-                    // tracked_people[matching_people_number] = detected_people[i];
-                    // tracked_people[matching_people_number].is_matched = true;
-                    // detected_people[i].is_matched = true;//重複マッチングの防止
-                    // std::cout << "tracked_people_id:" << tracked_people[matching_people_number].id << std::endl;
+                    // tracked_people[matching_people_number].is_matched_track = true;//追加11/1
+                    std::cout << "matching_people_number" << matching_people_number << std::endl;
+                    std::cout << "detected_people[i].is_matched" << detected_people[i].is_matched << std::endl;
                 }
                 else{
                     k++;
                     detected_people[i].id = tracked_people_max_number + k; //マッチングしなかったものを含める
+                    // detected_people[i].lost_num = 0;
                 }
-
             }
-
-            // is_matched が false の要素を削除
-            // for (size_t j = 0; j < tracked_people.size(); ) {
-            //     if (!tracked_people[j].is_matched) {
-            //         tracked_people.erase(tracked_people.begin() + j);
-            //     } else {
-            //         j++; // 削除しない場合はインデックスを進める
-            //     }
-            // }
-
-
-            // is_matched が false の要素を削除
-            // detected_people.erase(
-            //     std::remove_if(detected_people.begin(), detected_people.end(),
-            //                 [](const auto& person) { return !person.is_matched; }),
-            //     detected_people.end());
-
-        } else {
+        }
+         else {
             std::cout << "c" << std::endl;
-
             // tracked_people が空の場合、初期化
             for(size_t i = 0; i < detected_people.size(); i++){
                 detected_people[i].id = i;//rviz上のid
+                // detected_people[i].lost_num = 0;
                 tracked_people.push_back(detected_people[i]);
                 std::cout << "first_people_id" << tracked_people[i].id << std::endl;
                 std::cout << "d" << std::endl;
-
             }
-                    
+            for(size_t i = 0; i < detected_people.size(); i++){//追加11/1
+                detected_people[i].is_matched = false;
+            }
         }
 
         for(size_t i = 0; i < tracked_people.size(); i++){
@@ -300,20 +279,41 @@ private:
 
         tracked_people_pub_.publish(tracked_people_markers);
 
-        std::cout << "detected_people.size():" << detected_people.size() << std::endl;
-        std::cout << "tracked_people.size()_3:" << tracked_people.size() << std::endl << std::endl;
+        std::cout << "detected_people.size()_1:" << detected_people.size() << std::endl;
+        std::cout << "tracked_people.size()_1:" << tracked_people.size() << std::endl << std::endl;
+
+
+        for(size_t i = 0; i < tracked_people.size(); i++){//追加11/1
+            std::cout << "tracked_people[i].is_matched" << tracked_people[i].is_matched << std::endl;
+            if(tracked_people[i].is_matched_track == false){
+                if(tracked_people[i].lost_num < 3){
+                    tracked_people[i].lost_num += 1;
+                    detected_people.push_back(tracked_people[i]);
+                }
+            }
+            tracked_people[i].is_matched_track = false;
+        }
+
 
         // 各vectorの中身を消去
         tracked_people.clear();//ここで番号が初期化されてる？？
+        
+        std::cout << "detected_people.size()_2:" << detected_people.size() << std::endl;
+        std::cout << "tracked_people.size()_2:" << tracked_people.size() << std::endl << std::endl;
 
-        for(size_t i = 0; i < detected_people.size(); i++){//detected_peopleがtracked_peopleにコピーされているだけ
-            // if(detected_people[i].is_matched == true){
-            //     tracked_people.push_back(detected_people[i]);
-            // }
-    
+
+        for(size_t i = 0; i < detected_people.size(); i++){//detected_peopleがtracked_peopleにコピーされているだけ    
             tracked_people.push_back(detected_people[i]);
-            
+            std::cout << "detected_people[i].lost_num" << detected_people[i].lost_num << std::endl;
         }
+        std::cout << "detected_people.size()_3:" << detected_people.size() << std::endl;
+        std::cout << "tracked_people.size()_3:" << tracked_people.size() << std::endl << std::endl;
+
+        detected_people.clear();//ここで番号が初期化されてる？？
+
+        std::cout << "detected_people.size()_4:" << detected_people.size() << std::endl;
+        std::cout << "tracked_people.size()_4:" << tracked_people.size() << std::endl << std::endl;
+
 
     }
 
@@ -367,6 +367,20 @@ private:
 
     void publishPersonMarker(visualization_msgs::MarkerArray& people_markers, const Person& person, int marker_id, int red_color, int green_color, int blue_color)
     {
+        // // 既存のマーカーを削除するためのマーカーを追加
+        // visualization_msgs::Marker delete_marker;
+        // delete_marker.header.frame_id = "laser";
+        // delete_marker.header.stamp = ros::Time::now();
+        // delete_marker.ns = "detected_people";
+        // delete_marker.id = marker_id;  // 同じIDを使用
+        // delete_marker.type = visualization_msgs::Marker::LINE_LIST;
+        // delete_marker.action = visualization_msgs::Marker::DELETE;
+
+        // people_markers.markers.push_back(delete_marker);
+        // detected_people_pub_.publish(people_markers);
+
+
+
         visualization_msgs::Marker bbox_marker;
         bbox_marker.header.frame_id = "laser";
         bbox_marker.header.stamp = ros::Time::now();
@@ -382,6 +396,8 @@ private:
         // bbox_marker.color.g = 0.0;
         // bbox_marker.color.b = 0.0;
         bbox_marker.color.a = 1.0;
+        bbox_marker.lifetime = ros::Duration(0.01); 
+
 
         geometry_msgs::Point p1;
         p1.x = person.min_point.x;
@@ -427,7 +443,7 @@ private:
         text_marker.color.g = 1.0;
         text_marker.color.b = 1.0;
         text_marker.color.a = 1.0;
-        text_marker.lifetime = ros::Duration(0.025); 
+        text_marker.lifetime = ros::Duration(0.01); 
 
         // detected_person.idを表示
         // text_marker.text = "ID: " + std::to_string(person.id);

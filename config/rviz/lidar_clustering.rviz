@@ -25,7 +25,7 @@ Panels:
   - Class: rviz/Time
     Name: Time
     SyncMode: 0
-    SyncSource: LaserScan
+    SyncSource: ""
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -84,6 +84,7 @@ Visualization Manager:
       Marker Topic: /detected_people
       Name: MarkerArray
       Namespaces:
+        cluster_text: true
         detected_people: true
       Queue Size: 100
       Value: true
@@ -92,15 +93,49 @@ Visualization Manager:
       Marker Topic: /lidar_clusters
       Name: MarkerArray
       Namespaces:
-        cluster_text: true
         clusters: true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /tracked_people
+      Name: MarkerArray
+      Namespaces:
+        cluster_text: true
+        detected_people: true
+      Queue Size: 100
+      Value: true
+    - Alpha: 0.699999988079071
+      Class: rviz/Map
+      Color Scheme: map
+      Draw Behind: false
+      Enabled: true
+      Name: Map
+      Topic: /map
+      Unreliable: false
+      Use Timestamp: false
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /wall_markers
+      Name: Marker
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /area
+      Name: Marker
+      Namespaces:
+        range_box: true
       Queue Size: 100
       Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
     Default Light: true
-    Fixed Frame: laser
+    Fixed Frame: map
     Frame Rate: 30
   Name: root
   Tools:
@@ -124,7 +159,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 22.32680320739746
+      Distance: 25.89614486694336
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -132,9 +167,9 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 0
-        Y: 0
-        Z: 0
+        X: 2.494948148727417
+        Y: -1.1220052242279053
+        Z: -0.970818042755127
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false

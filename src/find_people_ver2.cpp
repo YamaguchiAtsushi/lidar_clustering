@@ -47,8 +47,15 @@ public:
     {
         scan_sub_ = nh_.subscribe("/scan", 10, &LidarClustering::scanCallback, this);
         cluster_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("lidar_clusters", 10);
+        area_pub_ = nh_.advertise<visualization_msgs::Marker>("area", 10);
         detected_people_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("detected_people", 10);
         tracked_people_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("tracked_people", 10);
+
+        min_x = 0.0;
+        max_x = 7.0;
+        min_y = -3.4;
+        max_y = 3.4;
+
 
     }
 
@@ -65,8 +72,13 @@ public:
             {
                 geometry_msgs::Point p;
                 double angle = scan->angle_min + i * scan->angle_increment;
-                p.x = scan->ranges[i] * cos(angle);
-                p.y = scan->ranges[i] * sin(angle);
+                double point_x = scan->ranges[i] * cos(angle);
+                double point_y = scan->ranges[i] * sin(angle);
+
+                if((min_x < point_x && point_x < max_x) && (min_y < point_y && point_y < max_y)){
+                    p.x = point_x;
+                    p.y = point_y;
+                }
 
                 if (current_cluster.empty() || distance(current_cluster.back(), p) < distance_threshold)
                 {
@@ -97,6 +109,7 @@ private:
     ros::NodeHandle nh_;
     ros::Subscriber scan_sub_;
     ros::Publisher cluster_pub_;
+    ros::Publisher area_pub_;
     ros::Publisher detected_people_pub_;
     ros::Publisher tracked_people_pub_;
 
@@ -104,6 +117,11 @@ private:
     // 人の検出結果を管理するためのリスト
     // std::vector<Person> detected_people;
     std::vector<Person> tracked_people;
+
+    double min_x;
+    double max_x;
+    double min_y;
+    double max_y;
 
 
     double distance(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2)
@@ -114,9 +132,11 @@ private:
     void publishClusters(const std::vector<std::vector<geometry_msgs::Point>>& clusters)
     {
         visualization_msgs::MarkerArray marker_array;
+
         for (size_t i = 0; i < clusters.size(); ++i)
         {
             visualization_msgs::Marker marker;
+            // marker.header.frame_id = "map";
             marker.header.frame_id = "laser";
             marker.header.stamp = ros::Time::now();
             marker.ns = "clusters";
@@ -139,12 +159,45 @@ private:
         }
 
         cluster_pub_.publish(marker_array);
+
+
+        visualization_msgs::Marker area_marker;
+
+        area_marker.header.frame_id = "laser"; // 適切なフレームに変更
+        area_marker.header.stamp = ros::Time::now();
+        area_marker.ns = "range_box";
+        area_marker.id = 0;
+        area_marker.type = visualization_msgs::Marker::LINE_STRIP;
+        area_marker.action = visualization_msgs::Marker::ADD;
+
+        // 線の色とサイズ
+        area_marker.scale.x = 0.1;  // 線の太さ
+        area_marker.color.r = 1.0;  // 赤色
+        area_marker.color.g = 0.0;
+        area_marker.color.b = 0.0;
+        area_marker.color.a = 1.0;
+        // 頂点を設定
+        geometry_msgs::Point p1, p2, p3, p4;
+        p1.x = min_x; p1.y = min_y; p1.z = 0.0;
+        p2.x = max_x;  p2.y = min_y; p2.z = 0.0;
+        p3.x = max_x;  p3.y = max_y;  p3.z = 0.0;
+        p4.x = min_x; p4.y = max_y;  p4.z = 0.0;
+
+        // 頂点をMarkerに追加 (最後に最初の点を追加して閉じる)
+        area_marker.points.push_back(p1);
+        area_marker.points.push_back(p2);
+        area_marker.points.push_back(p3);
+        area_marker.points.push_back(p4);
+        area_marker.points.push_back(p1);
+
+        area_pub_.publish(area_marker);
     }
 
     void addTextMarker(visualization_msgs::MarkerArray& marker_array, int id, const geometry_msgs::Point& position)
     {
         visualization_msgs::Marker text_marker;
         text_marker.header.frame_id = "laser";
+        // text_marker.header.frame_id = "map";
         text_marker.header.stamp = ros::Time::now();
         text_marker.ns = "cluster_text";
         text_marker.id = id + 1000;  // 一意なIDを使うため、オフセットを追加
@@ -286,7 +339,7 @@ private:
         for(size_t i = 0; i < tracked_people.size(); i++){//追加11/1
             std::cout << "tracked_people[i].is_matched" << tracked_people[i].is_matched << std::endl;
             if(tracked_people[i].is_matched_track == false){
-                if(tracked_people[i].lost_num < 3){
+                if(tracked_people[i].lost_num < 120){
                     tracked_people[i].lost_num += 1;
                     detected_people.push_back(tracked_people[i]);
                 }
@@ -383,6 +436,7 @@ private:
 
         visualization_msgs::Marker bbox_marker;
         bbox_marker.header.frame_id = "laser";
+        // bbox_marker.header.frame_id = "map";
         bbox_marker.header.stamp = ros::Time::now();
         bbox_marker.ns = "detected_people";
         bbox_marker.id = marker_id;
@@ -431,6 +485,7 @@ private:
         // IDを表示するためのテキストマーカーを追加
         visualization_msgs::Marker text_marker;
         text_marker.header.frame_id = "laser";
+        // text_marker.header.frame_id = "map";
         text_marker.header.stamp = ros::Time::now();
         text_marker.ns = "cluster_text";
         text_marker.id = marker_id + 1000;  // 一意なIDを使うため、オフセットを追加

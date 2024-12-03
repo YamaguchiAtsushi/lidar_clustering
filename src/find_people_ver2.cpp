@@ -53,8 +53,13 @@ public:
 
         min_x = 0.0;
         max_x = 7.0;
-        min_y = -3.4;
-        max_y = 3.4;
+        min_y = -3.0;
+        max_y = 3.0;
+    
+        // min_x = 1.0;
+        // max_x = 7.0;
+        // min_y = -1.0;
+        // max_y = 1.0;
 
 
     }
@@ -282,7 +287,7 @@ private:
 
                 for(size_t j = 0; j < tracked_people.size(); j++){
                     people_movement = distance(calcAveragePoint(detected_people[i].points), calcAveragePoint(tracked_people[j].points));
-                    if(people_movement < 0.5){
+                    if(people_movement < 1.2){
                         if(people_movement_min > people_movement){
                             people_movement_min = people_movement;
                             matching_people_number = j;
@@ -345,6 +350,14 @@ private:
                 }
             }
             tracked_people[i].is_matched_track = false;
+        }
+
+        for(size_t i = 0; i < detected_people.size(); i++){//消失した人が再び出現したときに同じidの人が２人出現する現象を対処
+            for(size_t j = i + 1; j < detected_people.size(); j++){
+                if(detected_people[i].id == detected_people[j].id){
+                    detected_people.erase(detected_people.begin() + i);
+                }
+            }
         }
 
 

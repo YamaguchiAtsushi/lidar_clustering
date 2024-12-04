@@ -6,6 +6,8 @@
 #include <vector>
 #include <algorithm>
 #include <limits>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 
 //IDが初期化されたときのlog
@@ -51,7 +53,7 @@ public:
         detected_people_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("detected_people", 10);
         tracked_people_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("tracked_people", 10);
 
-        min_x = 0.0;
+        min_x = 1.0;
         max_x = 7.0;
         min_y = -3.0;
         max_y = 3.0;
@@ -66,10 +68,13 @@ public:
 
     void scanCallback(const sensor_msgs::LaserScan::ConstPtr& scan)
     {
+        static tf2_ros::Buffer tfBuffer;
+        static tf2_ros::TransformListener tfListener(tfBuffer);
         std::vector<std::vector<geometry_msgs::Point>> clusters;
         std::vector<geometry_msgs::Point> current_cluster;
 
         double distance_threshold = 0.1;
+
 
         for (size_t i = 0; i < scan->ranges.size(); ++i)
         {
@@ -108,6 +113,7 @@ public:
 
         publishClusters(clusters);
         detectPeople(clusters);
+        fixPeople(tracked_people);
     }
 
 private:
@@ -127,6 +133,14 @@ private:
     double max_x;
     double min_y;
     double max_y;
+
+    void fixPeople(std::vector<Person>& tracked_people)
+    {
+        for (auto& tracked_person : tracked_people)
+        {
+            std::cout << "tracked_person.max_point" << tracked_person.max_point << std::endl;
+        }
+    }
 
 
     double distance(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2)
@@ -164,6 +178,7 @@ private:
         }
 
         cluster_pub_.publish(marker_array);
+
 
 
         visualization_msgs::Marker area_marker;
@@ -425,10 +440,18 @@ private:
         double length = calculateLength(person.min_point, person.max_point);
         double aspect_ratio = calculateAspectRatio(length, person.min_point, person.max_point);
 
-        return (   (avg_distance <= 5.0 && point_count >= 15 && point_count <= 70 && length >= 0.25 && length <= 0.7 && aspect_ratio >= 1.0 && aspect_ratio <= 3.0) 
-                || (avg_distance > 5.0 && avg_distance <= 10.0 && point_count >= 10 && point_count <= 35 && length >= 0.25 && length <= 0.65 && aspect_ratio >= 1.0 && aspect_ratio <= 3.0)
-                || (avg_distance > 10.0 && point_count >= 5 && point_count <= 18 && length >= 0.25 && length <= 0.7 && aspect_ratio >= 1.0 && aspect_ratio <= 3.0)
+        //amclをして自己位置推定しながら事件したときの条件
+        return (   (avg_distance <= 5.0 && point_count >= 15 && point_count <= 100 && length >= 0.25 && length <= 0.8 && aspect_ratio >= 1.0 && aspect_ratio <= 5.0) 
+                || (avg_distance > 5.0 && avg_distance <= 10.0 && point_count >= 10 && point_count <= 45 && length >= 0.25 && length <= 0.65 && aspect_ratio >= 1.0 && aspect_ratio <= 5.0)
+                || (avg_distance > 10.0 && point_count >= 5 && point_count <= 28 && length >= 0.25 && length <= 0.7 && aspect_ratio >= 1.0 && aspect_ratio <= 5.0)
             );
+
+
+        //LiDARが固定されていたときの条件
+        // return (   (avg_distance <= 5.0 && point_count >= 15 && point_count <= 70 && length >= 0.25 && length <= 0.7 && aspect_ratio >= 1.0 && aspect_ratio <= 3.0) 
+        //         || (avg_distance > 5.0 && avg_distance <= 10.0 && point_count >= 10 && point_count <= 35 && length >= 0.25 && length <= 0.65 && aspect_ratio >= 1.0 && aspect_ratio <= 3.0)
+        //         || (avg_distance > 10.0 && point_count >= 5 && point_count <= 18 && length >= 0.25 && length <= 0.7 && aspect_ratio >= 1.0 && aspect_ratio <= 3.0)
+        //     );
     }
 
     void publishPersonMarker(visualization_msgs::MarkerArray& people_markers, const Person& person, int marker_id, int red_color, int green_color, int blue_color)

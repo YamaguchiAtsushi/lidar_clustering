@@ -2,6 +2,7 @@
 #include <sensor_msgs/LaserScan.h>
 #include <geometry_msgs/Point.h>
 #include <visualization_msgs/MarkerArray.h>
+#include <std_msgs/Float32.h>
 #include <cmath>
 #include <vector>
 #include <algorithm>
@@ -29,6 +30,7 @@ public:
         scan_sub_ = nh_.subscribe("/scan", 10, &LidarClustering::scanCallback, this);
         cluster_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("lidar_clusters", 10);
         people_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("detected_people", 10);
+        obstacle_edge_point_pub_ = nh_.advertise<std_msgs::Float32>("obstacle_edge_point", 10);
     }
 
 
@@ -159,6 +161,16 @@ public:
 
             std::cout << "point_y_min: " << point_y_min << " point_y_max: " << point_y_max << std::endl;
         }
+
+        if(abs(point_y_min) < abs(point_y_max)){
+            obstacle_edge_point_msg.data = point_y_min;
+        }
+        else{
+            obstacle_edge_point_msg.data = point_y_max;
+        }
+        obstacle_edge_point_pub_.publish(obstacle_edge_point_msg);
+
+
     }
 
 
@@ -303,9 +315,11 @@ private:
     ros::Subscriber scan_sub_;
     ros::Publisher cluster_pub_;
     ros::Publisher people_pub_;
+    ros::Publisher obstacle_edge_point_pub_;
 
     std::vector<Person> tracked_people_; // 追跡中の人々のリスト
     std::vector<int> deleted_ids; //削除される人のID
+    std_msgs::Float32 obstacle_edge_point_msg;
     int next_id_; // 次に使用するID
     double cluster_distance_min = 100000;
     int cluster_distance_min_number;
@@ -314,6 +328,7 @@ private:
     double cluster_sum_y = 0.0;
     double point_y_min;
     double point_y_max;
+    
     
 
     // void nearCluster(const std::vector<std::vector<geometry_msgs::Point>>& clusters){

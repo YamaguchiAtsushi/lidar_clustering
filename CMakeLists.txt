@@ -12,6 +12,10 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   sensor_msgs
   visualization_msgs
+  tf
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
 )
 
 
@@ -154,6 +158,29 @@ target_link_libraries(find_people_ver2
   ${catkin_LIBRARIES}
 )
 
+add_executable(find_people_ver3 src/find_people_ver3.cpp)
+
+target_link_libraries(find_people_ver3
+  ${catkin_LIBRARIES}
+)
+
+add_executable(find_people_ver4 src/find_people_ver4.cpp)
+
+target_link_libraries(find_people_ver4
+  ${catkin_LIBRARIES}
+)
+
+add_executable(wall_extract src/wall_extract.cpp)
+
+target_link_libraries(wall_extract 
+  ${catkin_LIBRARIES}
+)
+
+add_executable(joy_control src/joy_control.cpp)
+
+target_link_libraries(joy_control
+  ${catkin_LIBRARIES}
+)
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
 #   src/${PROJECT_NAME}/lidar_clustering.cpp

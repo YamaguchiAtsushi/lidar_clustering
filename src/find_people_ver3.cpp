@@ -46,7 +46,7 @@ struct Person
 class LidarClustering
 {
 public:
-    LidarClustering() : marker_id(0)
+    LidarClustering() : marker_id(0), tfBuffer(), tfListener(tfBuffer)
     {
         scan_sub_ = nh_.subscribe("/scan", 10, &LidarClustering::scanCallback, this);
         cluster_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("lidar_clusters", 10);
@@ -55,10 +55,10 @@ public:
         tracked_people_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("tracked_people", 10);
         deleted_people_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("deleted_people", 10);
 
-        min_x = 5.0;
+        min_x = 6.0;
         max_x = 10.0;
         min_y = -2.0;
-        max_y = 4.5;
+        max_y = 5.5;
 
         // min_x = -5.0;
         // max_x = 15.0;
@@ -77,21 +77,148 @@ public:
 
     }
 
+    void publishAreaBefore(double min_x, double max_x, double min_y, double max_y, int i){
+
+        tf2::doTransform(pointBaseLink, pointMap, transformStampedScan);
+
+        if ((min_x < pointMap.point.x && pointMap.point.x < max_x) && (min_y < pointMap.point.y && pointMap.point.y < max_y)) {
+            pointMap.point.x = pointMap.point.x;
+            pointMap.point.y = pointMap.point.y;
+            pointBaseLink.point.z = 0.0;
+        }
+        else{//範囲外の点は無効にする
+            pointMap.point.x = std::numeric_limits<double>::quiet_NaN();
+            pointMap.point.y = std::numeric_limits<double>::quiet_NaN();
+            pointMap.point.z = std::numeric_limits<double>::quiet_NaN();
+        }
+
+        visualization_msgs::Marker area_marker;
+
+        // frame_idをmapに設定
+        area_marker.header.frame_id = "map"; 
+        area_marker.header.stamp = ros::Time::now();
+        area_marker.ns = "range_box";
+        area_marker.id = i + 100;
+        area_marker.type = visualization_msgs::Marker::LINE_STRIP;
+        area_marker.action = visualization_msgs::Marker::ADD;
+        area_marker.lifetime = ros::Duration(0.0); 
+
+
+        // 線の色とサイズ
+        area_marker.scale.x = 0.1;  // 線の太さ
+        area_marker.color.r = 1.0;  // 赤色
+        area_marker.color.g = 0.0;
+        area_marker.color.b = 0.0;
+        area_marker.color.a = 1.0;
+
+        // geometry_msgs::PointStamped p1, p2, p3, p4;
+        p1.header.stamp = ros::Time::now();
+        p2.header.stamp = ros::Time::now();
+        p3.header.stamp = ros::Time::now();
+        p4.header.stamp = ros::Time::now();
+
+        // laser座標系での位置設定
+        p1.point.x = min_x; p1.point.y = min_y; p1.point.z = 0.0;
+        p2.point.x = max_x; p2.point.y = min_y; p2.point.z = 0.0;
+        p3.point.x = max_x; p3.point.y = max_y; p3.point.z = 0.0;
+        p4.point.x = min_x; p4.point.y = max_y; p4.point.z = 0.0;
+
+        // static tf2_ros::Buffer tfBuffer;
+        // static tf2_ros::TransformListener tfListener(tfBuffer);
+
+        // laserフレームからmapフレームへの変換を取得
+        geometry_msgs::TransformStamped transformStamped = tfBuffer.lookupTransform("map", "laser", ros::Time(0), ros::Duration(1.0));
+
+        area_marker.points.push_back(p1.point);
+        area_marker.points.push_back(p2.point);
+        area_marker.points.push_back(p3.point);
+        area_marker.points.push_back(p4.point);
+        area_marker.points.push_back(p1.point); // 最初の点を再度追加して閉じる
+
+        area_pub_.publish(area_marker);
+
+    }
+
+
+    void publishArea(geometry_msgs::PointStamped pointBaseLink, geometry_msgs::PointStamped pointMap, double min_x, double max_x, double min_y, double max_y, int i){
+
+        // static tf2_ros::Buffer tfBuffer;
+        // static tf2_ros::TransformListener tfListener(tfBuffer);
+        geometry_msgs::TransformStamped transformStampedScan = tfBuffer.lookupTransform("map", "laser", ros::Time(0), ros::Duration(1.0));
+        tf2::doTransform(pointBaseLink, pointMap, transformStampedScan);
+
+        geometry_msgs::PointStamped p1, p2, p3, p4;
+
+
+        if ((min_x < pointMap.point.x && pointMap.point.x < max_x) && (min_y < pointMap.point.y && pointMap.point.y < max_y)) {
+            pointMap.point.x = pointMap.point.x;
+            pointMap.point.y = pointMap.point.y;
+            pointBaseLink.point.z = 0.0;
+        }
+        else{//範囲外の点は無効にする
+            pointMap.point.x = std::numeric_limits<double>::quiet_NaN();
+            pointMap.point.y = std::numeric_limits<double>::quiet_NaN();
+            pointMap.point.z = std::numeric_limits<double>::quiet_NaN();
+        }
+
+        visualization_msgs::Marker area_marker;
+
+        // frame_idをmapに設定
+        area_marker.header.frame_id = "map"; 
+        area_marker.header.stamp = ros::Time::now();
+        area_marker.ns = "range_box";
+        area_marker.id = i + 100;
+        area_marker.type = visualization_msgs::Marker::LINE_STRIP;
+        area_marker.action = visualization_msgs::Marker::ADD;
+        area_marker.lifetime = ros::Duration(0.0); 
+
+
+        // 線の色とサイズ
+        area_marker.scale.x = 0.1;  // 線の太さ
+        area_marker.color.r = 1.0;  // 赤色
+        area_marker.color.g = 0.0;
+        area_marker.color.b = 0.0;
+        area_marker.color.a = 1.0;
+
+        // geometry_msgs::PointStamped p1, p2, p3, p4;
+        p1.header.stamp = ros::Time::now();
+        p2.header.stamp = ros::Time::now();
+        p3.header.stamp = ros::Time::now();
+        p4.header.stamp = ros::Time::now();
+
+        // laser座標系での位置設定
+        p1.point.x = min_x; p1.point.y = min_y; p1.point.z = 0.0;
+        p2.point.x = max_x; p2.point.y = min_y; p2.point.z = 0.0;
+        p3.point.x = max_x; p3.point.y = max_y; p3.point.z = 0.0;
+        p4.point.x = min_x; p4.point.y = max_y; p4.point.z = 0.0;
+
+
+        area_marker.points.push_back(p1.point);
+        area_marker.points.push_back(p2.point);
+        area_marker.points.push_back(p3.point);
+        area_marker.points.push_back(p4.point);
+        area_marker.points.push_back(p1.point); // 最初の点を再度追加して閉じる
+
+        area_pub_.publish(area_marker);
+
+
+    }
+
     void scanCallback(const sensor_msgs::LaserScan::ConstPtr& scan)
     {
-        static tf2_ros::Buffer tfBuffer;
-        static tf2_ros::TransformListener tfListener(tfBuffer);
+        // static tf2_ros::Buffer tfBuffer;
+        // static tf2_ros::TransformListener tfListener(tfBuffer);
         std::vector<std::vector<geometry_msgs::PointStamped>> clusters;
         std::vector<geometry_msgs::PointStamped> current_cluster;
 
         double distance_threshold = 0.1;
 
         try {
-            geometry_msgs::TransformStamped transformStamped = tfBuffer.lookupTransform("map", "laser", ros::Time(0), ros::Duration(1.0));
+            transformStampedScan = tfBuffer.lookupTransform("map", "laser", ros::Time(0), ros::Duration(1.0));
 
             for (size_t i = 0; i < scan->ranges.size(); ++i) {
                 if (std::isfinite(scan->ranges[i])) {
-                    geometry_msgs::PointStamped pointBaseLink;
+                    // geometry_msgs::PointStamped pointBaseLink;
                     pointBaseLink.header.frame_id = "laser";
                     pointBaseLink.header.stamp = ros::Time::now();
 
@@ -99,37 +226,41 @@ public:
                     double x_base_link = scan->ranges[i] * cos(angle);
                     double y_base_link = scan->ranges[i] * sin(angle);
 
-                    geometry_msgs::PointStamped pointMap;
+                    // geometry_msgs::PointStamped pointMap;
                     pointMap.header.frame_id = "map";
                     pointMap.header.stamp = ros::Time::now();
 
                     pointBaseLink.point.x = x_base_link;
                     pointBaseLink.point.y = y_base_link;
                     pointBaseLink.point.z = 0.0;
+
+
+                    publishAreaBefore(min_x, max_x, min_y, max_y, 1);
+                    publishAreaBefore(min_x - 5.0, max_x - 5.0, min_y, max_y, 2);
+
+
+                    // publishArea(pointBaseLink1, pointMap1, min_x, max_x, min_y, max_y, 1);
+
+                    // publishArea(pointBaseLink2, pointMap2, min_x - 3.0, max_x - 3.0, min_y, max_y, 2);
+
+
+
                 
 
-                    tf2::doTransform(pointBaseLink, pointMap, transformStamped);
+                    // tf2::doTransform(pointBaseLink, pointMap, transformStamped);
 
-                    if ((min_x < pointMap.point.x && pointMap.point.x < max_x) && (min_y < pointMap.point.y && pointMap.point.y < max_y)) {
-                        pointMap.point.x = pointMap.point.x;
-                        pointMap.point.y = pointMap.point.y;
-                        pointBaseLink.point.z = 0.0;
-                    }
-                    else{//範囲外の点は無効にする
-                        pointMap.point.x = std::numeric_limits<double>::quiet_NaN();
-                        pointMap.point.y = std::numeric_limits<double>::quiet_NaN();
-                        pointMap.point.z = std::numeric_limits<double>::quiet_NaN();
-                    }
+                    // if ((min_x < pointMap.point.x && pointMap.point.x < max_x) && (min_y < pointMap.point.y && pointMap.point.y < max_y)) {
+                    //     pointMap.point.x = pointMap.point.x;
+                    //     pointMap.point.y = pointMap.point.y;
+                    //     pointBaseLink.point.z = 0.0;
+                    // }
+                    // else{//範囲外の点は無効にする
+                    //     pointMap.point.x = std::numeric_limits<double>::quiet_NaN();
+                    //     pointMap.point.y = std::numeric_limits<double>::quiet_NaN();
+                    //     pointMap.point.z = std::numeric_limits<double>::quiet_NaN();
+                    // }
 
-                    // Log pointBaseLink coordinates
-                    // ROS_INFO("pointBaseLink: x=%.2f, y=%.2f, z=%.2f, frame_id=%s",
-                    //          pointBaseLink.point.x, pointBaseLink.point.y, pointBaseLink.point.z,
-                    //          pointBaseLink.header.frame_id.c_str());
 
-                    // Log pointMap coordinates
-                    // ROS_INFO("pointMap: x=%.2f, y=%.2f, z=%.2f, frame_id=%s",
-                    //          pointMap.point.x, pointMap.point.y, pointMap.point.z,
-                    //          pointMap.header.frame_id.c_str());
 
                     if (current_cluster.empty() || distance(current_cluster.back(), pointMap) < distance_threshold) {
                         current_cluster.push_back(pointMap);
@@ -170,9 +301,23 @@ private:
     std::vector<Person> deleted_people;
 
 
+    tf2_ros::Buffer tfBuffer;                
+    tf2_ros::TransformListener tfListener;
+
     // 頂点を設定
     geometry_msgs::PointStamped p1, p2, p3, p4;
+
+    geometry_msgs::PointStamped pointBaseLink;
     geometry_msgs::PointStamped pointMap;
+
+    geometry_msgs::PointStamped pointBaseLink1;
+    geometry_msgs::PointStamped pointMap1;
+
+    geometry_msgs::PointStamped pointBaseLink2;
+    geometry_msgs::PointStamped pointMap2;
+
+    geometry_msgs::TransformStamped transformStampedScan;
+    
 
 
     double min_x;
@@ -257,8 +402,8 @@ private:
         p3.point.x = max_x; p3.point.y = max_y; p3.point.z = 0.0;
         p4.point.x = min_x; p4.point.y = max_y; p4.point.z = 0.0;
 
-        static tf2_ros::Buffer tfBuffer;
-        static tf2_ros::TransformListener tfListener(tfBuffer);
+        // static tf2_ros::Buffer tfBuffer;
+        // static tf2_ros::TransformListener tfListener(tfBuffer);
 
         // laserフレームからmapフレームへの変換を取得
         geometry_msgs::TransformStamped transformStamped = tfBuffer.lookupTransform("map", "laser", ros::Time(0), ros::Duration(1.0));
@@ -278,13 +423,13 @@ private:
         // p4 = pointMap;
 
         // 頂点をMarkerに追加 (最後に最初の点を追加して閉じる)
-        area_marker.points.push_back(p1.point);
-        area_marker.points.push_back(p2.point);
-        area_marker.points.push_back(p3.point);
-        area_marker.points.push_back(p4.point);
-        area_marker.points.push_back(p1.point); // 最初の点を再度追加して閉じる
+        // area_marker.points.push_back(p1.point);
+        // area_marker.points.push_back(p2.point);
+        // area_marker.points.push_back(p3.point);
+        // area_marker.points.push_back(p4.point);
+        // area_marker.points.push_back(p1.point); // 最初の点を再度追加して閉じる
 
-        area_pub_.publish(area_marker);
+        // area_pub_.publish(area_marker);
 
     }
 
@@ -379,7 +524,7 @@ private:
 
                 for(size_t j = 0; j < tracked_people.size(); j++){
                     people_movement = distance(calcAveragePoint(detected_people[i].points), calcAveragePoint(tracked_people[j].points));
-                    if(people_movement < 1.2){
+                    if(people_movement < 1.2){//ここでトラッキングを続ける距離を決める
                         if(people_movement_min > people_movement){
                             people_movement_min = people_movement;
                             matching_people_number = j;

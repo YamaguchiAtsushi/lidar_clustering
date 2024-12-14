@@ -54,10 +54,15 @@ public:
         detected_people_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("detected_people", 10);
         tracked_people_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("tracked_people", 10);
 
-        min_x = 0.0;
-        max_x = 7.0;
-        min_y = -3.0;
-        max_y = 3.0;
+        // min_x = 1.0;
+        // max_x = 10.0;
+        // min_y = -2.0;
+        // max_y = 4.5;
+
+        min_x = -5.0;
+        max_x = 15.0;
+        min_y = -10.0;
+        max_y = 10.5;
 
         fixed_frame = "map";
 
@@ -75,21 +80,16 @@ public:
     {
         static tf2_ros::Buffer tfBuffer;
         static tf2_ros::TransformListener tfListener(tfBuffer);
-        // geometry_msgs::TransformStamped transformStamped;
         std::vector<std::vector<geometry_msgs::PointStamped>> clusters;
         std::vector<geometry_msgs::PointStamped> current_cluster;
 
         double distance_threshold = 0.1;
 
-        try{
+        try {
             geometry_msgs::TransformStamped transformStamped = tfBuffer.lookupTransform("map", "laser", ros::Time(0), ros::Duration(1.0));
 
-            for (size_t i = 0; i < scan->ranges.size(); ++i)
-            {
-                if (std::isfinite(scan->ranges[i]))
-                {
-                    geometry_msgs::Point p;
-
+            for (size_t i = 0; i < scan->ranges.size(); ++i) {
+                if (std::isfinite(scan->ranges[i])) {
                     geometry_msgs::PointStamped pointBaseLink;
                     pointBaseLink.header.frame_id = "laser";
                     pointBaseLink.header.stamp = ros::Time::now();
@@ -101,67 +101,58 @@ public:
                     geometry_msgs::PointStamped pointMap;
                     pointMap.header.frame_id = "map";
                     pointMap.header.stamp = ros::Time::now();
-                    
-                    if((min_x < x_base_link && x_base_link < max_x) && (min_y < y_base_link && y_base_link < max_y)){
-                        pointBaseLink.point.x = x_base_link;
-                        pointBaseLink.point.y = y_base_link;
-                        pointBaseLink.point.z = 0.0;
-                    }
+
+                    pointBaseLink.point.x = x_base_link;
+                    pointBaseLink.point.y = y_base_link;
+                    pointBaseLink.point.z = 0.0;
+                
 
                     tf2::doTransform(pointBaseLink, pointMap, transformStamped);
-                    // tf2::doTransform(p1, pointMap, transformStamped);
-                    // tf2::doTransform(p2, pointMap, transformStamped);
-                    // tf2::doTransform(p3, pointMap, transformStamped);
-                    // tf2::doTransform(p4, pointMap, transformStamped);
 
-
-
-
-
-                    // if((min_x < pointMap.point.x && pointMap.point.x < max_x) && (min_y < pointMap.point.y && pointMap.point.y < max_y)){
-                    //     pointBaseLink.point.x = x_base_link;
-                    //     pointBaseLink.point.y = y_base_link;
-                    //     pointBaseLink.point.z = 0.0;
-                    // }
-
-                    
-                    if (current_cluster.empty() || distance(current_cluster.back(), pointMap) < distance_threshold)
-                    // if (current_cluster.empty() || distance(current_cluster.back(), pointBaseLink) < distance_threshold)
-                    {
-                        // current_cluster.push_back(pointBaseLink);
-                        current_cluster.push_back(pointMap);
-
+                    if ((min_x < pointMap.point.x && pointMap.point.x < max_x) && (min_y < pointMap.point.y && pointMap.point.y < max_y)) {
+                        pointMap.point.x = pointMap.point.x;
+                        pointMap.point.y = pointMap.point.y;
+                        pointBaseLink.point.z = 0.0;
                     }
-                    else
-                    {
-                        if (!current_cluster.empty())
-                        {
+                    else{//範囲外の点は無効にする
+                        pointMap.point.x = std::numeric_limits<double>::quiet_NaN();
+                        pointMap.point.y = std::numeric_limits<double>::quiet_NaN();
+                        pointMap.point.z = std::numeric_limits<double>::quiet_NaN();
+                    }
+
+                    // Log pointBaseLink coordinates
+                    ROS_INFO("pointBaseLink: x=%.2f, y=%.2f, z=%.2f, frame_id=%s",
+                             pointBaseLink.point.x, pointBaseLink.point.y, pointBaseLink.point.z,
+                             pointBaseLink.header.frame_id.c_str());
+
+                    // Log pointMap coordinates
+                    ROS_INFO("pointMap: x=%.2f, y=%.2f, z=%.2f, frame_id=%s",
+                             pointMap.point.x, pointMap.point.y, pointMap.point.z,
+                             pointMap.header.frame_id.c_str());
+
+                    if (current_cluster.empty() || distance(current_cluster.back(), pointMap) < distance_threshold) {
+                        current_cluster.push_back(pointMap);
+                    } else {
+                        if (!current_cluster.empty()) {
                             clusters.push_back(current_cluster);
                             current_cluster.clear();
                         }
-                        // current_cluster.push_back(pointBaseLink);
                         current_cluster.push_back(pointMap);
-
                     }
                 }
-                
             }
-        }
-        catch(tf2::TransformException& ex){
+        } catch (tf2::TransformException& ex) {
             ROS_WARN("Transform failed: %s", ex.what());
-
         }
 
-        if (!current_cluster.empty())
-        {
+        if (!current_cluster.empty()) {
             clusters.push_back(current_cluster);
         }
 
         publishClusters(clusters);
         detectPeople(clusters);
         fixPeople(tracked_people);
-}
-
+    }
 private:
     ros::NodeHandle nh_;
     ros::Subscriber scan_sub_;
@@ -270,18 +261,18 @@ private:
         geometry_msgs::TransformStamped transformStamped = tfBuffer.lookupTransform("map", "laser", ros::Time(0), ros::Duration(1.0));
 
         // PointStampedメッセージをmapフレームに変換
-        geometry_msgs::PointStamped pointMap;
-        tf2::doTransform(p1, pointMap, transformStamped);
-        p1 = pointMap;  // 変換後の座標を格納
+        // geometry_msgs::PointStamped pointMap;
+        // tf2::doTransform(p1, pointMap, transformStamped);
+        // p1 = pointMap;  // 変換後の座標を格納
 
-        tf2::doTransform(p2, pointMap, transformStamped);
-        p2 = pointMap;
+        // tf2::doTransform(p2, pointMap, transformStamped);
+        // p2 = pointMap;
 
-        tf2::doTransform(p3, pointMap, transformStamped);
-        p3 = pointMap;
+        // tf2::doTransform(p3, pointMap, transformStamped);
+        // p3 = pointMap;
 
-        tf2::doTransform(p4, pointMap, transformStamped);
-        p4 = pointMap;
+        // tf2::doTransform(p4, pointMap, transformStamped);
+        // p4 = pointMap;
 
         // 頂点をMarkerに追加 (最後に最初の点を追加して閉じる)
         area_marker.points.push_back(p1.point);

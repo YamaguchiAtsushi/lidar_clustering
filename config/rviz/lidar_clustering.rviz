@@ -6,6 +6,7 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
+        - /deleted_people1
       Splitter Ratio: 0.5
     Tree Height: 719
   - Class: rviz/Selection
@@ -80,26 +81,25 @@ Visualization Manager:
       Use rainbow: true
       Value: true
     - Class: rviz/MarkerArray
-      Enabled: true
+      Enabled: false
       Marker Topic: /detected_people
       Name: MarkerArray
       Namespaces:
-        cluster_text: true
-        detected_people: true
+        {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Class: rviz/MarkerArray
-      Enabled: true
+      Enabled: false
       Marker Topic: /lidar_clusters
-      Name: MarkerArray
+      Name: cluster
       Namespaces:
-        clusters: true
+        {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Class: rviz/MarkerArray
       Enabled: true
       Marker Topic: /tracked_people
-      Name: MarkerArray
+      Name: tracking
       Namespaces:
         cluster_text: true
         detected_people: true
@@ -117,16 +117,8 @@ Visualization Manager:
       Value: true
     - Class: rviz/Marker
       Enabled: true
-      Marker Topic: /wall_markers
-      Name: Marker
-      Namespaces:
-        {}
-      Queue Size: 100
-      Value: true
-    - Class: rviz/Marker
-      Enabled: true
       Marker Topic: /area
-      Name: Marker
+      Name: area_marker
       Namespaces:
         range_box: true
       Queue Size: 100
@@ -179,6 +171,44 @@ Visualization Manager:
       Topic: /particlecloud
       Unreliable: false
       Value: true
+    - Class: rviz/TF
+      Enabled: true
+      Filter (blacklist): ""
+      Filter (whitelist): ""
+      Frame Timeout: 15
+      Frames:
+        All Enabled: true
+        base_link:
+          Value: true
+        laser:
+          Value: true
+        map:
+          Value: true
+        odom:
+          Value: true
+      Marker Alpha: 1
+      Marker Scale: 1
+      Name: TF
+      Show Arrows: true
+      Show Axes: true
+      Show Names: true
+      Tree:
+        map:
+          odom:
+            base_link:
+              laser:
+                {}
+      Update Interval: 0
+      Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /deleted_people
+      Name: deleted_people
+      Namespaces:
+        cluster_text: true
+        detected_people: true
+      Queue Size: 100
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -207,7 +237,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 21.20331382751465
+      Distance: 29.78912925720215
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1

@@ -1,0 +1,16 @@
+my_costmap:
+  plugins: 
+    - {name: static_layer, type: "costmap_2d::StaticLayer"}     # 静的レイヤー
+    - {name: inflation_layer, type: "costmap_2d::InflationLayer"} # インフレーションレイヤー
+  global_frame: map            # コストマップの基準フレーム
+  robot_base_frame: base_link       # ロボットの基準フレーム
+  update_frequency: 2.0        # 更新頻度 (Hz)
+  publish_frequency: 2.0       # 公開頻度 (Hz)
+
+  static_layer:                # StaticLayerの設定
+    map_topic: "map"           # 地図トピック名
+    track_unknown_space: false # 不明な領域を追跡するかどうか
+    subscribe_to_updates: true # 地図の更新を受け取る
+
+  inflation_layer:             # InflationLayerの設定
+    inflation_radius: 0.25     # インフレーションの半径 (メートル)

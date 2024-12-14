@@ -53,16 +53,17 @@ public:
         area_pub_ = nh_.advertise<visualization_msgs::Marker>("area", 10);
         detected_people_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("detected_people", 10);
         tracked_people_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("tracked_people", 10);
+        deleted_people_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("deleted_people", 10);
 
-        // min_x = 1.0;
-        // max_x = 10.0;
-        // min_y = -2.0;
-        // max_y = 4.5;
+        min_x = 5.0;
+        max_x = 10.0;
+        min_y = -2.0;
+        max_y = 4.5;
 
-        min_x = -5.0;
-        max_x = 15.0;
-        min_y = -10.0;
-        max_y = 10.5;
+        // min_x = -5.0;
+        // max_x = 15.0;
+        // min_y = -10.0;
+        // max_y = 10.5;
 
         fixed_frame = "map";
 
@@ -121,14 +122,14 @@ public:
                     }
 
                     // Log pointBaseLink coordinates
-                    ROS_INFO("pointBaseLink: x=%.2f, y=%.2f, z=%.2f, frame_id=%s",
-                             pointBaseLink.point.x, pointBaseLink.point.y, pointBaseLink.point.z,
-                             pointBaseLink.header.frame_id.c_str());
+                    // ROS_INFO("pointBaseLink: x=%.2f, y=%.2f, z=%.2f, frame_id=%s",
+                    //          pointBaseLink.point.x, pointBaseLink.point.y, pointBaseLink.point.z,
+                    //          pointBaseLink.header.frame_id.c_str());
 
                     // Log pointMap coordinates
-                    ROS_INFO("pointMap: x=%.2f, y=%.2f, z=%.2f, frame_id=%s",
-                             pointMap.point.x, pointMap.point.y, pointMap.point.z,
-                             pointMap.header.frame_id.c_str());
+                    // ROS_INFO("pointMap: x=%.2f, y=%.2f, z=%.2f, frame_id=%s",
+                    //          pointMap.point.x, pointMap.point.y, pointMap.point.z,
+                    //          pointMap.header.frame_id.c_str());
 
                     if (current_cluster.empty() || distance(current_cluster.back(), pointMap) < distance_threshold) {
                         current_cluster.push_back(pointMap);
@@ -160,11 +161,13 @@ private:
     ros::Publisher area_pub_;
     ros::Publisher detected_people_pub_;
     ros::Publisher tracked_people_pub_;
+    ros::Publisher deleted_people_pub_;
 
     int marker_id;
     // 人の検出結果を管理するためのリスト
     // std::vector<Person> detected_people;
     std::vector<Person> tracked_people;
+    std::vector<Person> deleted_people;
 
 
     // 頂点を設定
@@ -360,6 +363,8 @@ private:
 
         // std::vector<Person> tracked_people;
         visualization_msgs::MarkerArray tracked_people_markers;
+        visualization_msgs::MarkerArray deleted_people_markers;
+
 
         if(!tracked_people.empty()){
             std::cout << "a" << std::endl;
@@ -434,10 +439,20 @@ private:
                 if(tracked_people[i].lost_num < 120){
                     tracked_people[i].lost_num += 1;
                     detected_people.push_back(tracked_people[i]);
+                }else{
+                    deleted_people.push_back(tracked_people[i]);
                 }
             }
             tracked_people[i].is_matched_track = false;
         }
+
+        for(size_t i = 0; i < deleted_people.size(); i++){
+            // std::cout << "delteted_people.size():" << deleted_people.size() << std::endl;
+            ROS_INFO("deleted_people.size(): %ld", deleted_people.size());
+            publishPersonMarker(deleted_people_markers, deleted_people[i], marker_id++, 0.0, 1.0, 0.0);
+        }
+
+        deleted_people_pub_.publish(deleted_people_markers);
 
         for(size_t i = 0; i < detected_people.size(); i++){//消失した人が再び出現したときに同じidの人が２人出現する現象を対処
             for(size_t j = i + 1; j < detected_people.size(); j++){

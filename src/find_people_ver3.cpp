@@ -11,24 +11,13 @@
 #include <tf2_ros/buffer.h>
 
 
-//IDが初期化されたときのlog
-// a
-// detected_people.size():0
-// tracked_people.size()_3:3
-
-// tracked_people.size()_4:0
-
-// tracked_people.size()_2:0
-
-// c
-// first_people_id0
-// d
-// first_people_id1
-// d
-// first_people_id2
-// d
-// detected_people.size():3
-
+struct Area {
+    double min_x;
+    double max_x;
+    double min_y;
+    double max_y;
+    // int id; // エリアの識別用
+};
 struct Person
 {
     std::vector<geometry_msgs::PointStamped> points;  // 検出された点の集まり
@@ -67,6 +56,10 @@ public:
 
         fixed_frame = "map";
 
+        areas.push_back({6.0, 10.0, -2.0, 5.5}); // エリア1
+        areas.push_back({1.0, 5.0, -2.0, 5.5}); // エリア2
+        
+
 
     
         // min_x = 1.0;
@@ -84,7 +77,7 @@ public:
         if ((min_x < pointMap.point.x && pointMap.point.x < max_x) && (min_y < pointMap.point.y && pointMap.point.y < max_y)) {
             pointMap.point.x = pointMap.point.x;
             pointMap.point.y = pointMap.point.y;
-            pointBaseLink.point.z = 0.0;
+            pointMap.point.z = 0.0;
         }
         else{//範囲外の点は無効にする
             pointMap.point.x = std::numeric_limits<double>::quiet_NaN();
@@ -317,6 +310,8 @@ private:
     geometry_msgs::PointStamped pointMap2;
 
     geometry_msgs::TransformStamped transformStampedScan;
+
+    std::vector<Area> areas;
     
 
 

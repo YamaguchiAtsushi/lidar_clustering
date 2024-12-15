@@ -267,7 +267,10 @@ private:
     {
         for (auto& tracked_person : tracked_people)
         {
-            std::cout << "tracked_person.max_point" << tracked_person.max_point.point << std::endl;
+            std::cout << "tracked_person.max_point.x" << tracked_person.max_point.point.x << std::endl;
+            std::cout << "tracked_person.max_point.y" << tracked_person.max_point.point.y << std::endl;
+            std::cout << "tracked_person.max_point.z" << tracked_person.max_point.point.z << std::endl;
+
         }
     }
 
@@ -450,6 +453,7 @@ private:
                     detected_people.push_back(tracked_people[i]);
                 }else{
                     deleted_people.push_back(tracked_people[i]);
+
                 }
             }
             tracked_people[i].is_matched_track = false;

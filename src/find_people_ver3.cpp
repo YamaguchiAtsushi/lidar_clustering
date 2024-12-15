@@ -1,6 +1,7 @@
 #include <ros/ros.h>
 #include <sensor_msgs/LaserScan.h>
 #include <geometry_msgs/Point.h>
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <cmath>
 #include <vector>
@@ -38,6 +39,7 @@ public:
     LidarClustering() : marker_id(0), tfBuffer(), tfListener(tfBuffer)
     {
         scan_sub_ = nh_.subscribe("/scan", 10, &LidarClustering::scanCallback, this);
+        amcl_sub_ = nh_.subscribe("/amcl_pose", 1000, &LidarClustering::amclPoseCallback, this);
         cluster_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("lidar_clusters", 10);
         area_pub_ = nh_.advertise<visualization_msgs::Marker>("area", 10);
         detected_people_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("detected_people", 10);
@@ -56,8 +58,10 @@ public:
 
         fixed_frame = "map";
 
-        areas.push_back({6.0, 10.0, -2.5, 6.0, 1}); // エリア1
-        areas.push_back({1.0, 5.0, -2.5, 6.0, 2}); // エリア2
+        areas.push_back({8.0, 10.0, -1.5, 5.0, 1}); // エリア1
+        areas.push_back({4.0, 6.0, -1.5, 5.0, 2}); // エリア2
+        areas.push_back({0.0, 2.0, -1.5, 5.0, 3}); // エリア2
+
         
 
 
@@ -132,6 +136,12 @@ public:
 
     }
 
+    void amclPoseCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& amcl_pose)
+    {
+        robot_x = amcl_pose->pose.pose.position.x;
+        robot_y = amcl_pose->pose.pose.position.y;
+    }
+
     void scanCallback(const sensor_msgs::LaserScan::ConstPtr& scan)
     {
         // static tf2_ros::Buffer tfBuffer;
@@ -169,6 +179,8 @@ public:
 
                     publishAreaBefore(areas[0]);
                     publishAreaBefore(areas[1]);
+                    publishAreaBefore(areas[2]);
+
 
 
 
@@ -189,6 +201,7 @@ public:
                     } else {
                         if (!current_cluster.empty()) {
                             clusters.push_back(current_cluster);
+                            std::cout << "current_cluster.size():" << current_cluster.size();
                             current_cluster.clear();
                         }
                         current_cluster.push_back(pointMap_after);
@@ -213,6 +226,7 @@ public:
 private:
     ros::NodeHandle nh_;
     ros::Subscriber scan_sub_;
+    ros::Subscriber amcl_sub_;  
     ros::Publisher cluster_pub_;
     ros::Publisher area_pub_;
     ros::Publisher detected_people_pub_;
@@ -240,7 +254,7 @@ private:
 
     std::vector<Area> areas;
     
-
+    double robot_x, robot_y;
 
     double min_x;
     double max_x;
@@ -293,43 +307,6 @@ private:
         }
 
         cluster_pub_.publish(marker_array);
-
-
-        visualization_msgs::Marker area_marker;
-
-        // frame_idをmapに設定
-        area_marker.header.frame_id = "map"; 
-        area_marker.header.stamp = ros::Time::now();
-        area_marker.ns = "range_box";
-        area_marker.id = 0;
-        area_marker.type = visualization_msgs::Marker::LINE_STRIP;
-        area_marker.action = visualization_msgs::Marker::ADD;
-
-        // 線の色とサイズ
-        area_marker.scale.x = 0.1;  // 線の太さ
-        area_marker.color.r = 1.0;  // 赤色
-        area_marker.color.g = 0.0;
-        area_marker.color.b = 0.0;
-        area_marker.color.a = 1.0;
-
-        geometry_msgs::PointStamped p1, p2, p3, p4;
-        p1.header.stamp = ros::Time::now();
-        p2.header.stamp = ros::Time::now();
-        p3.header.stamp = ros::Time::now();
-        p4.header.stamp = ros::Time::now();
-
-        // laser座標系での位置設定
-        p1.point.x = min_x; p1.point.y = min_y; p1.point.z = 0.0;
-        p2.point.x = max_x; p2.point.y = min_y; p2.point.z = 0.0;
-        p3.point.x = max_x; p3.point.y = max_y; p3.point.z = 0.0;
-        p4.point.x = min_x; p4.point.y = max_y; p4.point.z = 0.0;
-
-        // static tf2_ros::Buffer tfBuffer;
-        // static tf2_ros::TransformListener tfListener(tfBuffer);
-
-        // laserフレームからmapフレームへの変換を取得
-        // geometry_msgs::TransformStamped transformStamped = tfBuffer.lookupTransform("map", "laser", ros::Time(0), ros::Duration(1.0));
-
 
     }
 
@@ -410,7 +387,6 @@ private:
 
 
         if(!tracked_people.empty()){
-            std::cout << "a" << std::endl;
             int k = 0;
             for(size_t i = 0; i < detected_people.size(); i++){
                 detected_people[i].is_matched = false;
@@ -425,8 +401,7 @@ private:
                     if(people_movement < 1.2){//ここでトラッキングを続ける距離を決める
                         if(people_movement_min > people_movement){
                             people_movement_min = people_movement;
-                            matching_people_number = j;
-                            std::cout << "b" << std::endl;       
+                            matching_people_number = j;  
                         }
                     }
                     if(tracked_people_max_number < tracked_people[j].id){//新しい番号を付与するのに使う
@@ -438,8 +413,6 @@ private:
                     detected_people[i].is_matched = true;
                     tracked_people[matching_people_number].is_matched_track = true;//追加11/1
                     detected_people[i].id = tracked_people[matching_people_number].id;
-                    std::cout << "matching_people_number" << matching_people_number << std::endl;
-                    std::cout << "detected_people[i].is_matched" << detected_people[i].is_matched << std::endl;
                 }
                 else{
                     k++;
@@ -448,15 +421,12 @@ private:
                 }
             }
         }
-         else {
-            std::cout << "c" << std::endl;
+         else {;
             // tracked_people が空の場合、初期化
             for(size_t i = 0; i < detected_people.size(); i++){
                 detected_people[i].id = i;//rviz上のid
                 // detected_people[i].lost_num = 0;
                 tracked_people.push_back(detected_people[i]);
-                std::cout << "first_people_id" << tracked_people[i].id << std::endl;
-                std::cout << "d" << std::endl;
             }
             for(size_t i = 0; i < detected_people.size(); i++){//追加11/1
                 detected_people[i].is_matched = false;
@@ -469,12 +439,11 @@ private:
 
         tracked_people_pub_.publish(tracked_people_markers);
 
-        std::cout << "detected_people.size()_1:" << detected_people.size() << std::endl;
-        std::cout << "tracked_people.size()_1:" << tracked_people.size() << std::endl << std::endl;
+        // std::cout << "detected_people.size()_1:" << detected_people.size() << std::endl;
+        // std::cout << "tracked_people.size()_1:" << tracked_people.size() << std::endl << std::endl;
 
 
         for(size_t i = 0; i < tracked_people.size(); i++){//追加11/1
-            std::cout << "tracked_people[i].is_matched" << tracked_people[i].is_matched << std::endl;
             if(tracked_people[i].is_matched_track == false){
                 if(tracked_people[i].lost_num < 120){
                     tracked_people[i].lost_num += 1;
@@ -505,21 +474,21 @@ private:
         // 各vectorの中身を消去
         tracked_people.clear();//ここで番号が初期化されてる？？
         
-        std::cout << "detected_people.size()_2:" << detected_people.size() << std::endl;
-        std::cout << "tracked_people.size()_2:" << tracked_people.size() << std::endl << std::endl;
+        // std::cout << "detected_people.size()_2:" << detected_people.size() << std::endl;
+        // std::cout << "tracked_people.size()_2:" << tracked_people.size() << std::endl << std::endl;
 
 
         for(size_t i = 0; i < detected_people.size(); i++){//detected_peopleがtracked_peopleにコピーされているだけ    
             tracked_people.push_back(detected_people[i]);
             std::cout << "detected_people[i].lost_num" << detected_people[i].lost_num << std::endl;
         }
-        std::cout << "detected_people.size()_3:" << detected_people.size() << std::endl;
-        std::cout << "tracked_people.size()_3:" << tracked_people.size() << std::endl << std::endl;
+        // std::cout << "detected_people.size()_3:" << detected_people.size() << std::endl;
+        // std::cout << "tracked_people.size()_3:" << tracked_people.size() << std::endl << std::endl;
 
         detected_people.clear();//ここで番号が初期化されてる？？
 
-        std::cout << "detected_people.size()_4:" << detected_people.size() << std::endl;
-        std::cout << "tracked_people.size()_4:" << tracked_people.size() << std::endl << std::endl;
+        // std::cout << "detected_people.size()_4:" << detected_people.size() << std::endl;
+        // std::cout << "tracked_people.size()_4:" << tracked_people.size() << std::endl << std::endl;
 
 
     }
@@ -578,10 +547,28 @@ private:
         // double length = calculateLength(person.min_point.point, person.max_point.point);
         double aspect_ratio = calculateAspectRatio(length, person.min_point.point, person.max_point.point);
 
+
+            std::cout << std::endl;
+            std::cout << std::endl;
+            std::cout << std::endl;
+
+            ROS_INFO("avg_distance: %f", avg_distance);
+            ROS_INFO("point_count: %d", point_count);
+            ROS_INFO("length: %f", length);
+            ROS_INFO("aspect_ratio: %f", aspect_ratio);
+            // ROS_INFO("min_point: (%f, %f)", person.min_point.point.x, person.min_point.point.y);
+            // ROS_INFO("max_point: (%f, %f)", person.max_point.point.x, person.max_point.point.y);
+
         //amclをして自己位置推定しながら事件したときの条件
-        return (   (avg_distance <= 5.0 && point_count >= 15 && point_count <= 100 && length >= 0.25 && length <= 0.8 && aspect_ratio >= 1.0 && aspect_ratio <= 5.0) 
-                || (avg_distance > 5.0 && avg_distance <= 10.0 && point_count >= 10 && point_count <= 45 && length >= 0.25 && length <= 0.65 && aspect_ratio >= 1.0 && aspect_ratio <= 5.0)
-                || (avg_distance > 10.0 && point_count >= 5 && point_count <= 28 && length >= 0.25 && length <= 0.7 && aspect_ratio >= 1.0 && aspect_ratio <= 5.0)
+        // return (   (avg_distance <= 5.0 && point_count >= 15 && point_count <= 100 && length >= 0.25 && length <= 0.8 && aspect_ratio >= 1.0 && aspect_ratio <= 5.0) 
+        //         || (avg_distance > 5.0 && avg_distance <= 10.0 && point_count >= 10 && point_count <= 45 && length >= 0.25 && length <= 0.65 && aspect_ratio >= 1.0 && aspect_ratio <= 5.0)
+        //         || (avg_distance > 10.0 && point_count >= 5 && point_count <= 28 && length >= 0.25 && length <= 0.7 && aspect_ratio >= 1.0 && aspect_ratio <= 5.0)
+        //     );
+
+        //amclをして自己位置推定しながら事件したときの条件・pointMap_afterに変換したことで、point_countがバグっているので除去
+        return (   (avg_distance <= 5.0 && point_count >= 15 && length >= 0.25 && length <= 0.8 && aspect_ratio >= 1.0 && aspect_ratio <= 5.0) 
+                || (avg_distance > 5.0 && avg_distance <= 10.0 && point_count >= 10 && length >= 0.25 && length <= 0.65 && aspect_ratio >= 1.0 && aspect_ratio <= 5.0)
+                || (avg_distance > 10.0 && point_count >= 5 && length >= 0.25 && length <= 0.7 && aspect_ratio >= 1.0 && aspect_ratio <= 5.0)
             );
 
 
@@ -700,8 +687,8 @@ private:
         for (const auto& point : cluster)
         {
             geometry_msgs::PointStamped origin;
-            origin.point.x = 0.0;
-            origin.point.y = 0.0;
+            origin.point.x = robot_x; //もともとは0.0
+            origin.point.y = robot_y; //もともとは0.0
             origin.point.z = 0.0;
             total_distance += distance(origin, point); // 原点からの距離
         }

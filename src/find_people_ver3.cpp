@@ -16,7 +16,7 @@ struct Area {
     double max_x;
     double min_y;
     double max_y;
-    // int id; // エリアの識別用
+    int id; // エリアの識別用
 };
 struct Person
 {
@@ -70,11 +70,11 @@ public:
 
     }
 
-    void publishAreaBefore(double min_x, double max_x, double min_y, double max_y, int i){
+    void publishAreaBefore(struct Area area){
 
         tf2::doTransform(pointBaseLink, pointMap, transformStampedScan);
 
-        if ((min_x < pointMap.point.x && pointMap.point.x < max_x) && (min_y < pointMap.point.y && pointMap.point.y < max_y)) {
+        if ((area.min_x < pointMap.point.x && pointMap.point.x < area.max_x) && (area.min_y < pointMap.point.y && pointMap.point.y < area.max_y)) {
             pointMap.point.x = pointMap.point.x;
             pointMap.point.y = pointMap.point.y;
             pointMap.point.z = 0.0;
@@ -91,7 +91,7 @@ public:
         area_marker.header.frame_id = "map"; 
         area_marker.header.stamp = ros::Time::now();
         area_marker.ns = "range_box";
-        area_marker.id = i + 100;
+        area_marker.id = area.id + 100;
         area_marker.type = visualization_msgs::Marker::LINE_STRIP;
         area_marker.action = visualization_msgs::Marker::ADD;
         area_marker.lifetime = ros::Duration(0.0); 
@@ -111,10 +111,10 @@ public:
         p4.header.stamp = ros::Time::now();
 
         // laser座標系での位置設定
-        p1.point.x = min_x; p1.point.y = min_y; p1.point.z = 0.0;
-        p2.point.x = max_x; p2.point.y = min_y; p2.point.z = 0.0;
-        p3.point.x = max_x; p3.point.y = max_y; p3.point.z = 0.0;
-        p4.point.x = min_x; p4.point.y = max_y; p4.point.z = 0.0;
+        p1.point.x = area.min_x; p1.point.y = area.min_y; p1.point.z = 0.0;
+        p2.point.x = area.max_x; p2.point.y = area.min_y; p2.point.z = 0.0;
+        p3.point.x = area.max_x; p3.point.y = area.max_y; p3.point.z = 0.0;
+        p4.point.x = area.min_x; p4.point.y = area.max_y; p4.point.z = 0.0;
 
         // static tf2_ros::Buffer tfBuffer;
         // static tf2_ros::TransformListener tfListener(tfBuffer);
@@ -211,7 +211,6 @@ public:
 
             for (size_t i = 0; i < scan->ranges.size(); ++i) {
                 if (std::isfinite(scan->ranges[i])) {
-                    // geometry_msgs::PointStamped pointBaseLink;
                     pointBaseLink.header.frame_id = "laser";
                     pointBaseLink.header.stamp = ros::Time::now();
 
@@ -219,7 +218,6 @@ public:
                     double x_base_link = scan->ranges[i] * cos(angle);
                     double y_base_link = scan->ranges[i] * sin(angle);
 
-                    // geometry_msgs::PointStamped pointMap;
                     pointMap.header.frame_id = "map";
                     pointMap.header.stamp = ros::Time::now();
 
@@ -227,9 +225,12 @@ public:
                     pointBaseLink.point.y = y_base_link;
                     pointBaseLink.point.z = 0.0;
 
+                    tf2::doTransform(pointBaseLink, pointMap, transformStampedScan);
 
-                    publishAreaBefore(min_x, max_x, min_y, max_y, 1);
-                    publishAreaBefore(min_x - 5.0, max_x - 5.0, min_y, max_y, 2);
+
+
+                    publishAreaBefore(areas[0]);
+                    // publishAreaBefore(min_x - 5.0, max_x - 5.0, min_y, max_y, 2);
 
 
                     // publishArea(pointBaseLink1, pointMap1, min_x, max_x, min_y, max_y, 1);

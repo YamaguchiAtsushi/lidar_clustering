@@ -38,13 +38,16 @@ class LidarClustering
 public:
     LidarClustering() : marker_id(0), tfBuffer(), tfListener(tfBuffer)
     {
-        scan_sub_ = nh_.subscribe("/scan", 10, &LidarClustering::scanCallback, this);
-        amcl_sub_ = nh_.subscribe("/amcl_pose", 1000, &LidarClustering::amclPoseCallback, this);
-        cluster_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("lidar_clusters", 10);
-        area_pub_ = nh_.advertise<visualization_msgs::Marker>("area", 10);
-        detected_people_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("detected_people", 10);
-        tracked_people_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("tracked_people", 10);
-        deleted_people_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("deleted_people", 10);
+        cluster_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("lidar_clusters", 1);
+        area_pub_ = nh_.advertise<visualization_msgs::Marker>("area", 1);
+        detected_people_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("detected_people", 1);
+        tracked_people_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("tracked_people", 1);
+        deleted_people_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("deleted_people", 1);
+
+        ros::Duration(0.5).sleep();
+      
+        scan_sub_ = nh_.subscribe("/scan", 1, &LidarClustering::scanCallback, this);
+        amcl_sub_ = nh_.subscribe("/amcl_pose", 1, &LidarClustering::amclPoseCallback, this);
 
         min_x = 6.0;
         max_x = 10.0;
@@ -59,7 +62,7 @@ public:
         fixed_frame = "map";
 
         areas.push_back({8.0, 10.0, -1.5, 5.0, 1}); // エリア1
-        areas.push_back({4.0, 6.0, -1.5, 5.0, 2}); // エリア2
+        areas.push_back({2.5, 6.0, -1.5, 5.0, 2}); // エリア2
         areas.push_back({0.0, 2.0, -1.5, 5.0, 3}); // エリア2
 
         

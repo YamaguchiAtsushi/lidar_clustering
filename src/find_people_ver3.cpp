@@ -61,11 +61,12 @@ public:
 
         fixed_frame = "map";
 
-        areas.push_back({8.0, 10.0, -1.5, 5.0, 1}); // エリア1
-        areas.push_back({2.5, 6.0, -1.5, 5.0, 2}); // エリア2
-        areas.push_back({0.0, 2.0, -1.5, 5.0, 3}); // エリア2
+        areas.push_back({-0.0, 10.0, -1.5, 4.5, 1}); // エリア1
 
-        
+        // areas.push_back({6.5, 10.0, -1.5, 5.0, 1}); // エリア1
+        // areas.push_back({4.5, 6.0, -1.5, 5.0, 2}); // エリア2
+        // areas.push_back({2.0, 4.0, -1.5, 5.0, 3}); // エリア3
+
 
 
     
@@ -204,7 +205,7 @@ public:
                     } else {
                         if (!current_cluster.empty()) {
                             clusters.push_back(current_cluster);
-                            std::cout << "current_cluster.size():" << current_cluster.size();
+                            // std::cout << "current_cluster.size():" << current_cluster.size();
                             current_cluster.clear();
                         }
                         current_cluster.push_back(pointMap_after);
@@ -266,13 +267,16 @@ private:
 
     std::string fixed_frame;
 
+    int start_flag = 0;
+    int tracked_people_max_number = 0;
+
     void fixPeople(std::vector<Person>& tracked_people)
     {
         for (auto& tracked_person : tracked_people)
         {
-            std::cout << "tracked_person.max_point.x" << tracked_person.max_point.point.x << std::endl;
-            std::cout << "tracked_person.max_point.y" << tracked_person.max_point.point.y << std::endl;
-            std::cout << "tracked_person.max_point.z" << tracked_person.max_point.point.z << std::endl;
+            // std::cout << "tracked_person.max_point.x" << tracked_person.max_point.point.x << std::endl;
+            // std::cout << "tracked_person.max_point.y" << tracked_person.max_point.point.y << std::endl;
+            // std::cout << "tracked_person.max_point.z" << tracked_person.max_point.point.z << std::endl;
 
         }
     }
@@ -384,7 +388,7 @@ private:
         int matching_people_number = -1;
         int matching_people_number_now;//追加10/31
         int marker_id ;
-        int tracked_people_max_number;
+        
         std::vector<int> matching_people_num;
 
         // std::vector<Person> tracked_people;
@@ -400,7 +404,7 @@ private:
                 people_movement_min = 10000;
                 matching_people_number = -1;
                 matching_people_number_now = 0;
-                tracked_people_max_number = 0;
+                // tracked_people_max_number = 0;
 
                 for(size_t j = 0; j < tracked_people.size(); j++){
                     people_movement = distance(calcAveragePoint(detected_people[i].points), calcAveragePoint(tracked_people[j].points));
@@ -413,6 +417,9 @@ private:
                     if(tracked_people_max_number < tracked_people[j].id){//新しい番号を付与するのに使う
                         tracked_people_max_number = tracked_people[j].id;
                     }
+                    // if(tracked_people_max_number < detected_people[j].id){//新しい番号を付与するのに使う
+                    //     tracked_people_max_number = detected_people[j].id;
+                    // }                    
                 }
 
                 if(matching_people_number != -1){//すべてのマッチング探索後に、最適なマッチングをする
@@ -427,26 +434,68 @@ private:
                 }
             }
         }
-         else {;
+        //  else {
+        //     // tracked_people が空の場合、初期化
+        //     for(size_t i = 0; i < detected_people.size(); i++){
+        //         detected_people[i].id = i;//rviz上のid
+        //         // detected_people[i].lost_num = 0;
+        //         tracked_people.push_back(detected_people[i]);
+        //     }
+        //     for(size_t i = 0; i < detected_people.size(); i++){//追加11/1
+        //         detected_people[i].is_matched = false;
+        //     }
+        // }
+
+         else {
             // tracked_people が空の場合、初期化
-            for(size_t i = 0; i < detected_people.size(); i++){
-                detected_people[i].id = i;//rviz上のid
-                // detected_people[i].lost_num = 0;
-                tracked_people.push_back(detected_people[i]);
+            if(start_flag == 0){
+                for(size_t i = 0; i < detected_people.size(); i++){
+                    detected_people[i].id = i;//rviz上のid
+                    // detected_people[i].lost_num = 0;
+                    tracked_people.push_back(detected_people[i]);
+                }
+                for(size_t i = 0; i < detected_people.size(); i++){//追加11/1
+                    detected_people[i].is_matched = false;
+                }
+                start_flag = 1;
             }
-            for(size_t i = 0; i < detected_people.size(); i++){//追加11/1
-                detected_people[i].is_matched = false;
+            if(start_flag == 1){
+                for(size_t i = 0; i < detected_people.size(); i++){
+                    detected_people[i].id = tracked_people_max_number + 1;//rviz上のid
+                    // detected_people[i].lost_num = 0;
+                    tracked_people.push_back(detected_people[i]);
+                }
+                for(size_t i = 0; i < detected_people.size(); i++){//追加11/1
+                    detected_people[i].is_matched = false;
+                }
             }
         }
+            std::cout << "tracked_people_max_number:" << tracked_people_max_number << std::endl;
+
+
+        // if(tracked_people.empty() && tracked_people_max_number != 0){//tracked_peopleが空だが、最初の初期化ではない場合
+        //     std::cout << "tracked_people_max_number:" << tracked_people_max_number << std::endl;
+
+
+        //     for(size_t i = 0; i < detected_people.size(); i++){
+        //         std::cout << "aaaaaaaaaa" << std::endl;
+        //         detected_people[i].id = tracked_people_max_number + i + 1;//rviz上のid
+        //         // detected_people[i].lost_num = 0;
+        //         tracked_people.push_back(detected_people[i]);
+        //     }
+        //     for(size_t i = 0; i < detected_people.size(); i++){//追加11/1
+        //         std::cout << "bbbbbbbbbb" << std::endl;
+        //         detected_people[i].is_matched = false;
+        //     }
+
+        // }
 
         for(size_t i = 0; i < tracked_people.size(); i++){
             publishPersonMarker(tracked_people_markers, tracked_people[i], marker_id++, 1.0, 0.0, 0.0);
+            ROS_INFO("tracked_people[i].id: %d", tracked_people[i].id);
         }
 
         tracked_people_pub_.publish(tracked_people_markers);
-
-        // std::cout << "detected_people.size()_1:" << detected_people.size() << std::endl;
-        // std::cout << "tracked_people.size()_1:" << tracked_people.size() << std::endl << std::endl;
 
 
         for(size_t i = 0; i < tracked_people.size(); i++){//追加11/1
@@ -463,7 +512,7 @@ private:
         }
 
         for(size_t i = 0; i < deleted_people.size(); i++){
-            ROS_INFO("deleted_people.size(): %ld", deleted_people.size());
+            // ROS_INFO("deleted_people.size(): %ld", deleted_people.size());
             publishPersonMarker(deleted_people_markers, deleted_people[i], marker_id++, 0.0, 1.0, 0.0);
         }
 
@@ -487,7 +536,7 @@ private:
 
         for(size_t i = 0; i < detected_people.size(); i++){//detected_peopleがtracked_peopleにコピーされているだけ    
             tracked_people.push_back(detected_people[i]);
-            std::cout << "detected_people[i].lost_num" << detected_people[i].lost_num << std::endl;
+            // std::cout << "detected_people[i].lost_num" << detected_people[i].lost_num << std::endl;
         }
         // std::cout << "detected_people.size()_3:" << detected_people.size() << std::endl;
         // std::cout << "tracked_people.size()_3:" << tracked_people.size() << std::endl << std::endl;
@@ -555,14 +604,14 @@ private:
         double aspect_ratio = calculateAspectRatio(length, person.min_point.point, person.max_point.point);
 
 
-            std::cout << std::endl;
-            std::cout << std::endl;
-            std::cout << std::endl;
+            // std::cout << std::endl;
+            // std::cout << std::endl;
+            // std::cout << std::endl;
 
-            ROS_INFO("avg_distance: %f", avg_distance);
-            ROS_INFO("point_count: %d", point_count);
-            ROS_INFO("length: %f", length);
-            ROS_INFO("aspect_ratio: %f", aspect_ratio);
+            // ROS_INFO("avg_distance: %f", avg_distance);
+            // ROS_INFO("point_count: %d", point_count);
+            // ROS_INFO("length: %f", length);
+            // ROS_INFO("aspect_ratio: %f", aspect_ratio);
             // ROS_INFO("min_point: (%f, %f)", person.min_point.point.x, person.min_point.point.y);
             // ROS_INFO("max_point: (%f, %f)", person.max_point.point.x, person.max_point.point.y);
 

@@ -1,27 +1,34 @@
 <?xml version="1.0"?>
 <launch>
     <!-- src_bagの定義 -->
-    <arg name="bag_file" default="/home/yamaguchi-a/catkin_ws/src/lidar_clustering/bag/amcl_test7.bag" />
-
-    <!-- rosbag playノード -->
-    <node pkg="rosbag" type="play" name="bag_player" args="--clock $(arg bag_file)" required="true"/>
-
-    <!-- lidar_clusteringノード -->
-    <!-- <node name="lidar_clustering" pkg="lidar_clustering" type="lidar_clustering" output="screen">
-    </node> -->
-
-    <!-- <node name="lidar_clustering_ver2" pkg="lidar_clustering" type="lidar_clustering_ver2" output="screen">
-    </node> -->
+    <!-- <arg name="bag_file" default="/home/yamaguchi-a/catkin_ws/src/lidar_clustering/bag/amcl_test7.bag" /> -->
+    <!-- <arg name="bag_file" default="/home/yamaguchi-a/catkin_ws/src/lidar_clustering/bag/1-16-1.bag" /> -->
+    <!-- <arg name="bag_file" default="/home/yamaguchi-a/catkin_ws/src/lidar_clustering/bag/1-16-2.bag" /> -->
+    <arg name="bag_file" default="/home/yamaguchi-a/catkin_ws/src/lidar_clustering/bag/1-16-3.bag" />
+    <!-- <arg name="bag_file" default="/home/yamaguchi-a//dual_urg.bag" /> -->
 
 
-    <!-- <node name="front_clustering" pkg="lidar_clustering" type="front_clustering" output="screen">
-    </node> -->
+    <!-- <arg name="bag_file" default="/home/yamaguchi-a/catkin_ws/src/lidar_clustering/bag/1-14-2.bag" /> -->
 
-    <!-- <node name="find_people" pkg="lidar_clustering" type="find_people" output="screen">
-    </node> -->
 
-    <node name="find_people_ver2" pkg="lidar_clustering" type="find_people_ver2" output="screen">
+
+    <!-- rosbag playノード -r 2.0-->
+    <node pkg="rosbag" type="play" name="bag_player" args="--loop --clock  $(arg bag_file)" required="true"/>
+
+    <node name="find_people_ver3" pkg="lidar_clustering" type="find_people_ver3" output="screen">
     </node>
+
+    <!-- <node name="recognize_area_select" pkg="lidar_clustering" type="recognize_area_select" output="screen">
+    </node> -->
+
+  <!-- costmap_test -->
+  <!-- <node pkg="lidar_clustering" type="costmap" name="costmap" output="screen">
+    <rosparam command="load" file="$(find lidar_clustering)/config/costmap/global_costmap_params.yaml" />
+  </node> -->
+
+  <!-- <node name="costmap" pkg="lidar_clustering" type="costmap" output="screen">
+    <param name="global_costmap" value="$(find lidar_clustering)/config/costmap/global_costmap_params.yaml"/>
+  </node> -->
 
     <!-- rvizノード -->
     <node pkg="rviz" type="rviz" name="rviz" args="-d $(find lidar_clustering)/config/rviz/lidar_clustering.rviz" />

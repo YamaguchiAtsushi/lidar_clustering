@@ -6,9 +6,8 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
-        - /LaserScan1
-        - /Marker1
-        - /Marker1/Status1
+        - /collision_monitor1
+        - /tracking_people1
       Splitter Ratio: 0.5
     Tree Height: 719
   - Class: rviz/Selection
@@ -141,11 +140,36 @@ Visualization Manager:
       Use rainbow: true
       Value: true
     - Class: rviz/Marker
-      Enabled: true
+      Enabled: false
       Marker Topic: /visualization_marker
       Name: Marker
       Namespaces:
-        waypoints: true
+        {}
+      Queue Size: 100
+      Value: false
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /collision_monitor
+      Name: collision_monitor
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /waypoint_marker
+      Name: waypoint
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /tracked_people
+      Name: tracking_people
+      Namespaces:
+        cluster_text: true
+        detected_people: true
       Queue Size: 100
       Value: true
   Enabled: true
@@ -176,7 +200,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 21.086299896240234
+      Distance: 27.51888084411621
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1

@@ -7,6 +7,7 @@ project(lidar_clustering)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
+find_package(OpenCV REQUIRED)
 find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   roscpp
@@ -16,6 +17,9 @@ find_package(catkin REQUIRED COMPONENTS
   tf2
   tf2_ros
   tf2_geometry_msgs
+  costmap_2d
+  OpenCV
+  cv_bridge
 )
 
 
@@ -125,8 +129,16 @@ catkin_package(
 include_directories(
 # include
   ${catkin_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
 )
 
+
+
+add_executable(recognize_area_select src/recognize_area_select.cpp)
+
+target_link_libraries(recognize_area_select
+  ${catkin_LIBRARIES} ${OpenCV_LIBRARIES}
+)
 
 add_executable(lidar_clustering src/lidar_clustering.cpp)
 
